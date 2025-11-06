@@ -1,0 +1,14 @@
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+exclude = "venv"
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+select = ["E", "F", "W"]
+ignore = ["E501"] 
+exclude = ["venv"]
