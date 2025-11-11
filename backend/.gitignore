@@ -1,3 +1,7 @@
 venv/
 backend/venv/
 node_modules/
+*.dump
+*.backup
+*.log
+/data/
