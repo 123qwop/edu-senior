@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link as RouterLink } from 'react-router-dom'
+import { useState } from 'react';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -13,18 +13,36 @@ import {
   Stack,
   TextField,
   Typography,
-} from '@mui/material'
-import Grid from '@mui/material/Grid'
-import GoogleIcon from '@mui/icons-material/Google'
-import GitHubIcon from '@mui/icons-material/GitHub'
-import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
-import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined'
-import loginIllustration from '../assets/login-illustration.png'
-import logo from '../assets/logo.png'
+} from '@mui/material';
+import Grid from '@mui/material/Grid';
+import GoogleIcon from '@mui/icons-material/Google';
+import GitHubIcon from '@mui/icons-material/GitHub';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
+import loginIllustration from '../assets/login-illustration.png';
+import logo from '../assets/logo.png';
+import { login } from '../api/authApi';
 
 export default function LoginPage() {
-  const [showPassword, setShowPassword] = useState(false)
-
+  const navigate = useNavigate();
+  const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const handleLogin = async () => {
+    try {
+      setLoading(true);
+      await login(email, password);
+      alert('Login successful!');
+      navigate('/');
+    } catch (err: unknown) {
+      console.error(err);
+      const msg = 'Login failed';
+      alert(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <Container
       sx={{
@@ -65,6 +83,8 @@ export default function LoginPage() {
               <TextField
                 label="Email Address"
                 type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 fullWidth
                 InputLabelProps={{ sx: { color: 'neutral.500' } }}
               />
@@ -72,6 +92,8 @@ export default function LoginPage() {
                 label="Password"
                 type={showPassword ? 'text' : 'password'}
                 fullWidth
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 InputLabelProps={{ sx: { color: 'neutral.500' } }}
                 InputProps={{
                   endAdornment: (
@@ -88,25 +110,47 @@ export default function LoginPage() {
                 label="Remember me"
                 sx={{ color: 'neutral.500' }}
               />
-              <Button variant="contained" size="large" sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.300' } }}>
+              <Button
+                variant="contained"
+                size="large"
+                loading={loading}
+                onClick={handleLogin}
+                sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.300' } }}
+              >
                 Login
               </Button>
               <Stack spacing={1}>
                 <Typography variant="body2" sx={{ color: 'neutral.500', textAlign: 'center' }}>
                   or Login with
                 </Typography>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="center">
-                  <Button variant="outlined" startIcon={<GoogleIcon />} sx={{ color: 'neutral.700', borderColor: 'neutral.300' }}>
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  spacing={1.5}
+                  justifyContent="center"
+                >
+                  <Button
+                    variant="outlined"
+                    startIcon={<GoogleIcon />}
+                    sx={{ color: 'neutral.700', borderColor: 'neutral.300' }}
+                  >
                     Google
                   </Button>
-                  <Button variant="outlined" startIcon={<GitHubIcon />} sx={{ color: 'neutral.700', borderColor: 'neutral.300' }}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<GitHubIcon />}
+                    sx={{ color: 'neutral.700', borderColor: 'neutral.300' }}
+                  >
                     GitHub
                   </Button>
                 </Stack>
               </Stack>
               <Typography variant="body2" sx={{ color: 'neutral.500', textAlign: 'center' }}>
                 Don&apos;t have an account?{' '}
-                <Link component={RouterLink} to="/signup" sx={{ color: 'primary.main', fontWeight: 600 }}>
+                <Link
+                  component={RouterLink}
+                  to="/signup"
+                  sx={{ color: 'primary.main', fontWeight: 600 }}
+                >
                   Sign up
                 </Link>
               </Typography>
@@ -122,10 +166,15 @@ export default function LoginPage() {
               justifyContent: 'center',
             }}
           >
-            <Box component="img" src={loginIllustration} alt="Login illustration" sx={{ width: '100%', maxWidth: 360 }} />
+            <Box
+              component="img"
+              src={loginIllustration}
+              alt="Login illustration"
+              sx={{ width: '100%', maxWidth: 360 }}
+            />
           </Grid>
         </Grid>
       </Paper>
     </Container>
-  )
+  );
 }

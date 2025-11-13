@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link as RouterLink } from 'react-router-dom'
+import { useState } from 'react';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Box,
   Button,
@@ -13,19 +13,51 @@ import {
   Stack,
   TextField,
   Typography,
-} from '@mui/material'
-import Grid from '@mui/material/Grid'
-import GoogleIcon from '@mui/icons-material/Google'
-import GitHubIcon from '@mui/icons-material/GitHub'
-import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined'
-import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined'
-import signupIllustration from '../assets/signup-illustration.png'
-import logo from '../assets/logo.png'
+} from '@mui/material';
+import Grid from '@mui/material/Grid';
+import GoogleIcon from '@mui/icons-material/Google';
+import GitHubIcon from '@mui/icons-material/GitHub';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
+import signupIllustration from '../assets/signup-illustration.png';
+import logo from '../assets/logo.png';
+import { register } from '../api/authApi';
 
 export default function SignupPage() {
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const navigate = useNavigate();
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const handleSignup = async () => {
+    if (password !== confirmPassword) {
+      alert('Passwords do not match');
+      return;
+    }
 
+    setLoading(true);
+
+    try {
+      await register({
+        full_name: fullName,
+        email,
+        password,
+        role: 'student',
+      });
+
+      alert('Account created successfully!');
+      navigate('/login');
+    } catch (err: unknown) {
+      console.error(err);
+      const msg = 'Registration failed';
+      alert(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
   return (
     <Container
       sx={{
@@ -57,7 +89,12 @@ export default function SignupPage() {
               justifyContent: 'center',
             }}
           >
-            <Box component="img" src={signupIllustration} alt="Signup illustration" sx={{ width: '100%', maxWidth: 380 }} />
+            <Box
+              component="img"
+              src={signupIllustration}
+              alt="Signup illustration"
+              sx={{ width: '100%', maxWidth: 380 }}
+            />
           </Grid>
           <Grid
             size={{ xs: 12, md: 6 }}
@@ -76,17 +113,27 @@ export default function SignupPage() {
               </Typography>
             </Stack>
             <Stack spacing={3}>
-              <TextField label="Full Name" fullWidth InputLabelProps={{ sx: { color: 'neutral.500' } }} />
+              <TextField
+                label="Full Name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                fullWidth
+                InputLabelProps={{ sx: { color: 'neutral.500' } }}
+              />
               <TextField
                 label="Email Address"
                 type="email"
                 fullWidth
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 InputLabelProps={{ sx: { color: 'neutral.500' } }}
               />
               <TextField
                 label="Password"
                 type={showPassword ? 'text' : 'password'}
                 fullWidth
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 InputLabelProps={{ sx: { color: 'neutral.500' } }}
                 InputProps={{
                   endAdornment: (
@@ -102,12 +149,21 @@ export default function SignupPage() {
                 label="Confirm Password"
                 type={showConfirmPassword ? 'text' : 'password'}
                 fullWidth
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 InputLabelProps={{ sx: { color: 'neutral.500' } }}
                 InputProps={{
                   endAdornment: (
                     <InputAdornment position="end">
-                      <IconButton onClick={() => setShowConfirmPassword((prev) => !prev)} edge="end">
-                        {showConfirmPassword ? <VisibilityOffOutlinedIcon /> : <VisibilityOutlinedIcon />}
+                      <IconButton
+                        onClick={() => setShowConfirmPassword((prev) => !prev)}
+                        edge="end"
+                      >
+                        {showConfirmPassword ? (
+                          <VisibilityOffOutlinedIcon />
+                        ) : (
+                          <VisibilityOutlinedIcon />
+                        )}
                       </IconButton>
                     </InputAdornment>
                   ),
@@ -124,23 +180,41 @@ export default function SignupPage() {
                   </Typography>
                 }
               />
-              <Button variant="contained" size="large" sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.300' } }}>
+              <Button
+                variant="contained"
+                size="large"
+                sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.300' } }}
+                onClick={handleSignup}
+                loading={loading}
+              >
                 Create Account
               </Button>
               <Typography variant="body2" sx={{ color: 'neutral.500', textAlign: 'center' }}>
                 or Sign Up with
               </Typography>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="center">
-                <Button variant="outlined" startIcon={<GoogleIcon />} sx={{ color: 'neutral.700', borderColor: 'neutral.300' }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<GoogleIcon />}
+                  sx={{ color: 'neutral.700', borderColor: 'neutral.300' }}
+                >
                   Google
                 </Button>
-                <Button variant="outlined" startIcon={<GitHubIcon />} sx={{ color: 'neutral.700', borderColor: 'neutral.300' }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<GitHubIcon />}
+                  sx={{ color: 'neutral.700', borderColor: 'neutral.300' }}
+                >
                   GitHub
                 </Button>
               </Stack>
               <Typography variant="body2" sx={{ color: 'neutral.500', textAlign: 'center' }}>
                 Already have an account?{' '}
-                <Link component={RouterLink} to="/login" sx={{ color: 'primary.main', fontWeight: 600 }}>
+                <Link
+                  component={RouterLink}
+                  to="/login"
+                  sx={{ color: 'primary.main', fontWeight: 600 }}
+                >
                   Login
                 </Link>
               </Typography>
@@ -149,5 +223,5 @@ export default function SignupPage() {
         </Grid>
       </Paper>
     </Container>
-  )
+  );
 }
