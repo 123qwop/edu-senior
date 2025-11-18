@@ -1,17 +1,11 @@
 import { Box, Typography, Paper, Button } from '@mui/material';
-import Header from '../ui/Header';
 import Grid from '@mui/material/Grid';
-import Footer from '../ui/Footer';
 export default function Statistics() {
   return (
-    <Box sx={{ bgcolor: 'neutral.50', minHeight: '100vh' }}>
-      <Header />
-
-      <Box sx={{ px: 4, py: 3 }}>
-        <Typography variant="h4" sx={{ fontWeight: 700, mb: 3 }}>
-          Welcome back, Nurassyl!
-        </Typography>
-
+    <Box sx={{ py: 4, flexGrow: 1 }}>
+      <Typography variant="h4" sx={{ fontWeight: 700, color: 'neutral.700', mb: 3 }}>
+        Statistics
+      </Typography>
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 6 }}>
             <Paper
@@ -26,15 +20,15 @@ export default function Statistics() {
               }}
             >
               <Box>
-                <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                <Typography variant="h5" sx={{ fontWeight: 700, color: 'inherit' }}>
                   Nurassyl Mukan
                 </Typography>
-                <Typography sx={{ opacity: 0.9 }}>Class A</Typography>
+                <Typography sx={{ opacity: 0.9, color: 'inherit' }}>Class A</Typography>
 
                 <Box sx={{ mt: 2 }}>
-                  <Typography sx={{ fontWeight: 600 }}>📈 Key Statistics</Typography>
-                  <Typography>Total Study Sets: 5</Typography>
-                  <Typography>Average Quiz Score: 70%</Typography>
+                  <Typography sx={{ fontWeight: 600, color: 'inherit' }}>📈 Key Statistics</Typography>
+                  <Typography sx={{ color: 'inherit' }}>Total Study Sets: 5</Typography>
+                  <Typography sx={{ color: 'inherit' }}>Average Quiz Score: 70%</Typography>
                 </Box>
               </Box>
             </Paper>
@@ -50,18 +44,20 @@ export default function Statistics() {
                 color: 'white',
               }}
             >
-              <Typography variant="h6">Suggestion of the day</Typography>
+              <Typography variant="h6" sx={{ color: 'inherit' }}>Suggestion of the day</Typography>
               <Paper
                 elevation={0}
                 sx={{
                   mt: 2,
                   p: 2,
-                  bgcolor: 'white',
-                  color: 'black',
+                  bgcolor: 'background.paper',
+                  color: 'text.primary',
                   borderRadius: 2,
                 }}
               >
-                You should repeat Databases Study Set once more to get a higher score
+                <Typography sx={{ color: 'inherit' }}>
+                  You should repeat Databases Study Set once more to get a higher score
+                </Typography>
               </Paper>
             </Paper>
           </Grid>
@@ -77,13 +73,13 @@ export default function Statistics() {
                 color: 'white',
               }}
             >
-              <Typography variant="h6" sx={{ mb: 2 }}>
+              <Typography variant="h6" sx={{ mb: 2, color: 'inherit' }}>
                 Leaderboard · Databases ▼
               </Typography>
 
-              <Typography>1. Ayan — 75%</Typography>
-              <Typography>2. Nurassyl — 70%</Typography>
-              <Typography>3. Dias — 69%</Typography>
+              <Typography sx={{ color: 'inherit' }}>1. Ayan — 75%</Typography>
+              <Typography sx={{ color: 'inherit' }}>2. Nurassyl — 70%</Typography>
+              <Typography sx={{ color: 'inherit' }}>3. Dias — 69%</Typography>
             </Paper>
           </Grid>
 
@@ -96,7 +92,7 @@ export default function Statistics() {
                 bgcolor: 'primary.light',
               }}
             >
-              <Typography variant="h6" sx={{ mb: 2, color: 'white' }}>
+              <Typography variant="h6" sx={{ mb: 2, color: 'inherit' }}>
                 My Study Sets
               </Typography>
 
@@ -106,11 +102,11 @@ export default function Statistics() {
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   mb: 1,
-                  color: 'white',
+                  color: 'inherit',
                 }}
               >
-                <Typography>Databases</Typography>
-                <Button variant="contained" color="inherit" sx={{ color: 'black' }}>
+                <Typography sx={{ color: 'inherit' }}>Databases</Typography>
+                <Button variant="contained" color="inherit" sx={{ color: 'text.primary' }}>
                   Study
                 </Button>
               </Box>
@@ -120,11 +116,11 @@ export default function Statistics() {
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  color: 'white',
+                  color: 'inherit',
                 }}
               >
-                <Typography>Machine Learning</Typography>
-                <Button variant="contained" color="inherit" sx={{ color: 'black' }}>
+                <Typography sx={{ color: 'inherit' }}>Machine Learning</Typography>
+                <Button variant="contained" color="inherit" sx={{ color: 'text.primary' }}>
                   Study
                 </Button>
               </Box>
@@ -133,8 +129,8 @@ export default function Statistics() {
                 fullWidth
                 sx={{
                   mt: 3,
-                  bgcolor: 'white',
-                  color: 'black',
+                  bgcolor: 'background.paper',
+                  color: 'text.primary',
                   borderRadius: 2,
                   textTransform: 'none',
                 }}
@@ -144,8 +140,6 @@ export default function Statistics() {
             </Paper>
           </Grid>
         </Grid>
-      </Box>
-      <Footer />
     </Box>
   );
 }
