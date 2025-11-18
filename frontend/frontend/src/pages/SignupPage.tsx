@@ -21,7 +21,7 @@ import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import signupIllustration from '../assets/signup-illustration.png';
 import logo from '../assets/logo.png';
-import { register } from '../api/authApi';
+import { register, login } from '../api/authApi';
 
 export default function SignupPage() {
   const navigate = useNavigate();
@@ -33,6 +33,21 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const handleSignup = async () => {
+    if (!fullName.trim()) {
+      alert('Please enter your full name');
+      return;
+    }
+
+    if (!email.trim()) {
+      alert('Please enter your email address');
+      return;
+    }
+
+    if (password.length < 6) {
+      alert('Password must be at least 6 characters long');
+      return;
+    }
+
     if (password !== confirmPassword) {
       alert('Passwords do not match');
       return;
@@ -41,19 +56,23 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
+      // Register the user
       await register({
-        full_name: fullName,
-        email,
+        full_name: fullName.trim(),
+        email: email.trim(),
         password,
         role: 'student',
       });
 
-      alert('Account created successfully!');
-      navigate('/login');
+      // Automatically log in the user after registration
+      await login(email.trim(), password);
+
+      // Redirect to dashboard
+      navigate('/dashboard');
     } catch (err: unknown) {
       console.error(err);
-      const msg = 'Registration failed';
-      alert(msg);
+      const errorMessage = err instanceof Error ? err.message : 'Registration failed. Please try again.';
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -185,9 +204,9 @@ export default function SignupPage() {
                 size="large"
                 sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.300' } }}
                 onClick={handleSignup}
-                loading={loading}
+                disabled={loading}
               >
-                Create Account
+                {loading ? 'Creating Account...' : 'Create Account'}
               </Button>
               <Typography variant="body2" sx={{ color: 'neutral.500', textAlign: 'center' }}>
                 or Sign Up with
