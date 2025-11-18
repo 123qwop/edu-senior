@@ -16,9 +16,12 @@ def register(payload: schemas.UserCreate, db: Session = Depends(get_db)):
     if db.query(models.User).filter(models.User.email == payload.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    role_obj = db.query(models.Role).filter(models.Role.name == payload.role).first()
+    # Ensure role has a default value
+    role_name = payload.role if payload.role else "student"
+    
+    role_obj = db.query(models.Role).filter(models.Role.name == role_name).first()
     if not role_obj:
-        role_obj = models.Role(name=payload.role)
+        role_obj = models.Role(name=role_name)
         db.add(role_obj)
         db.commit()
         db.refresh(role_obj)
@@ -115,7 +118,12 @@ def revoke_refresh(payload: schemas.RefreshIn, db: Session = Depends(get_db)):
 
 @router.get("/me", response_model=schemas.UserOut)
 def read_me(current_user=Depends(deps.get_current_user)):
-    return current_user
+    return {
+        "id": current_user.user_id,
+        "email": current_user.email,
+        "full_name": current_user.name,
+        "role": current_user.role.name if current_user.role else None,
+    }
 
 
 # password reset
