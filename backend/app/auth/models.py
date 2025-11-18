@@ -13,10 +13,10 @@ from app.database.database import Base
 
 
 class Role(Base):
-    __tablename__ = "roles"
+    __tablename__ = "role"
     __table_args__ = {"schema": "public"}
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(50), unique=True, nullable=False)
+    id = Column("role_id", Integer, primary_key=True, index=True)
+    name = Column("role_name", String(50), unique=True, nullable=False)
 
 
 class RevokedToken(Base):
@@ -34,5 +34,5 @@ class User(Base):
     name = Column(String(100), nullable=False)
     email = Column(String(150), nullable=False, unique=True)
     password_hash = Column(String(255), nullable=False)
-    role_id = Column(Integer, ForeignKey("public.roles.id"))
+    role_id = Column(Integer, ForeignKey("public.role.role_id"))
     role = relationship("Role")
