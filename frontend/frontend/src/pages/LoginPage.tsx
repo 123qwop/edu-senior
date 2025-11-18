@@ -30,15 +30,24 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const handleLogin = async () => {
+    if (!email.trim()) {
+      alert('Please enter your email address');
+      return;
+    }
+
+    if (!password) {
+      alert('Please enter your password');
+      return;
+    }
+
     try {
       setLoading(true);
-      await login(email, password);
-      alert('Login successful!');
-      navigate('/statistics');
+      await login(email.trim(), password);
+      navigate('/dashboard');
     } catch (err: unknown) {
       console.error(err);
-      const msg = 'Login failed';
-      alert(msg);
+      const errorMessage = err instanceof Error ? err.message : 'Login failed. Please check your credentials.';
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -113,11 +122,11 @@ export default function LoginPage() {
               <Button
                 variant="contained"
                 size="large"
-                loading={loading}
+                disabled={loading}
                 onClick={handleLogin}
                 sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.300' } }}
               >
-                Login
+                {loading ? 'Logging in...' : 'Login'}
               </Button>
               <Stack spacing={1}>
                 <Typography variant="body2" sx={{ color: 'neutral.500', textAlign: 'center' }}>
