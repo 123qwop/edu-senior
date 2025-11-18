@@ -34,7 +34,7 @@ export default function LoginPage() {
       setLoading(true);
       await login(email, password);
       alert('Login successful!');
-      navigate('/');
+      navigate('/dashboard');
     } catch (err: unknown) {
       console.error(err);
       const msg = 'Login failed';
