@@ -64,7 +64,7 @@ const theme = createTheme({
     },
   },
   typography: {
-    fontFamily: `'Inter', 'Helvetica Neue', Arial, sans-serif`,
+    fontFamily: `'Roboto', 'Helvetica Neue', Arial, sans-serif`,
     h3: {
       fontWeight: 700,
     },

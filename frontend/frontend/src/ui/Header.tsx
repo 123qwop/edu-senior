@@ -1,5 +1,6 @@
 import { AppBar, Stack, Toolbar, Typography, Link, Button, IconButton, Box } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
+import LanguageIcon from '@mui/icons-material/Language';
 import logo from '../assets/logo.png';
 import { Link as RouterLink } from 'react-router-dom';
 
@@ -36,22 +37,22 @@ export default function Header() {
           >
             Home
           </Link>
-          <Link
-            component={RouterLink}
-            to="#"
-            underline="none"
-            sx={{ color: 'neutral.50', fontWeight: 500 }}
-          >
-            Dashboard
-          </Link>
-          <Link
+          <Button
             component={RouterLink}
             to="/login"
-            underline="none"
-            sx={{ color: 'neutral.50', fontWeight: 500 }}
+            variant="outlined"
+            sx={{
+              borderColor: 'neutral.50',
+              color: 'neutral.50',
+              bgcolor: 'transparent',
+              '&:hover': {
+                borderColor: 'neutral.50',
+                bgcolor: 'rgba(250, 250, 250, 0.1)',
+              },
+            }}
           >
             Login
-          </Link>
+          </Button>
           <Button
             component={RouterLink}
             to="/signup"
@@ -74,6 +75,7 @@ export default function Header() {
           <Button
             variant="outlined"
             size="small"
+            startIcon={<LanguageIcon />}
             sx={{
               borderColor: 'neutral.50',
               color: 'neutral.50',
