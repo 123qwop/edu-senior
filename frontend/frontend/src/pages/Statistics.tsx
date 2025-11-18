@@ -2,7 +2,7 @@ import { Box, Typography, Paper, Button } from '@mui/material';
 import Header from '../ui/Header';
 import Grid from '@mui/material/Grid';
 import Footer from '../ui/Footer';
-export default function Dashboard() {
+export default function Statistics() {
   return (
     <Box sx={{ bgcolor: 'neutral.50', minHeight: '100vh' }}>
       <Header />
