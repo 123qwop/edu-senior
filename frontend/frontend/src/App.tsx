@@ -3,6 +3,7 @@ import { CssBaseline, ThemeProvider } from '@mui/material';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
+import PwdReset from './pages/PwdReset'
 import DashboardLayout from './ui/DashboardLayout';
 import Dashboard from './pages/Dashboard';
 import Statistics from './pages/Statistics';
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
+        <Route path="/pwdreset" element={<PwdReset />} />
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/dashboard/study-sets" element={<StudySets />} />
