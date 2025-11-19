@@ -5,11 +5,15 @@ import {
   Button,
   Checkbox,
   Container,
+  FormControl,
   FormControlLabel,
   IconButton,
   InputAdornment,
+  InputLabel,
   Link,
+  MenuItem,
   Paper,
+  Select,
   Stack,
   TextField,
   Typography,
@@ -31,6 +35,7 @@ export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [role, setRole] = useState('student');
   const [loading, setLoading] = useState(false);
   const handleSignup = async () => {
     if (!fullName.trim()) {
@@ -61,7 +66,7 @@ export default function SignupPage() {
         full_name: fullName.trim(),
         email: email.trim(),
         password,
-        role: 'student',
+        role: role,
       });
 
       // Automatically log in the user after registration
@@ -188,6 +193,18 @@ export default function SignupPage() {
                   ),
                 }}
               />
+              <FormControl fullWidth>
+                <InputLabel sx={{ color: 'neutral.500' }}>I am a</InputLabel>
+                <Select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value)}
+                  label="I am a"
+                  sx={{ color: 'neutral.700' }}
+                >
+                  <MenuItem value="student">Student</MenuItem>
+                  <MenuItem value="teacher">Teacher</MenuItem>
+                </Select>
+              </FormControl>
               <FormControlLabel
                 control={<Checkbox sx={{ color: 'neutral.500' }} />}
                 label={

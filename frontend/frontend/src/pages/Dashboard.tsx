@@ -20,10 +20,11 @@ import NotificationsIcon from '@mui/icons-material/Notifications'
 import CloudOffIcon from '@mui/icons-material/CloudOff'
 import CloudDoneIcon from '@mui/icons-material/CloudDone'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
-import { getMe } from '../api/authApi'
+import { getMe, getUserRole, isTeacher } from '../api/authApi'
 
 export default function Dashboard() {
   const [firstName, setFirstName] = useState('User')
+  const [userRole, setUserRole] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -37,6 +38,9 @@ export default function Dashboard() {
         } else {
           console.warn('No full_name in user data:', userData)
         }
+        if (userData.role) {
+          setUserRole(userData.role)
+        }
       } catch (err) {
         console.error('Failed to fetch user data:', err)
         // Keep default "User" if fetch fails
@@ -45,6 +49,8 @@ export default function Dashboard() {
 
     fetchUserData()
   }, [])
+
+  const isTeacherView = userRole === 'teacher'
   const todayGoal = { questions: 20, timeLeft: 10 }
   const nextUp = {
     topicName: 'Derivatives',
@@ -132,30 +138,54 @@ export default function Dashboard() {
             <Typography variant="h4" sx={{ fontWeight: 700, color: 'neutral.700', mb: 1 }}>
               Welcome back, {firstName}!
             </Typography>
-            <Typography variant="body2" sx={{ color: 'neutral.500', mb: 3 }}>
-              Goal: {todayGoal.questions} questions • {todayGoal.timeLeft} min left
-            </Typography>
-            <Button
-              variant="contained"
-              size="large"
-              startIcon={<PlayArrowIcon />}
-              sx={{ mb: 2, bgcolor: 'primary.main' }}
-            >
-              Continue where you left off
-            </Button>
-            <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-              Next up: {nextUp.topicName} • {nextUp.difficulty} • Estimated {nextUp.time} min
-            </Typography>
+            {isTeacherView ? (
+              <>
+                <Typography variant="body2" sx={{ color: 'neutral.500', mb: 3 }}>
+                  Manage your classes and track student progress
+                </Typography>
+                <Button
+                  variant="contained"
+                  size="large"
+                  startIcon={<PlayArrowIcon />}
+                  sx={{ mb: 2, bgcolor: 'primary.main' }}
+                  component={RouterLink}
+                  to="/dashboard/subjects"
+                >
+                  View My Classes
+                </Button>
+                <Typography variant="body2" sx={{ color: 'neutral.500' }}>
+                  {assignments.length} active classes • {todayProgress.questionsAnswered} students active today
+                </Typography>
+              </>
+            ) : (
+              <>
+                <Typography variant="body2" sx={{ color: 'neutral.500', mb: 3 }}>
+                  Goal: {todayGoal.questions} questions • {todayGoal.timeLeft} min left
+                </Typography>
+                <Button
+                  variant="contained"
+                  size="large"
+                  startIcon={<PlayArrowIcon />}
+                  sx={{ mb: 2, bgcolor: 'primary.main' }}
+                >
+                  Continue where you left off
+                </Button>
+                <Typography variant="body2" sx={{ color: 'neutral.500' }}>
+                  Next up: {nextUp.topicName} • {nextUp.difficulty} • Estimated {nextUp.time} min
+                </Typography>
+              </>
+            )}
           </Paper>
 
-          {/* Streaks & Gamification */}
-          <Paper elevation={0} sx={{ p: 3, mb: 3 }}>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-              <EmojiEventsIcon sx={{ color: 'primary.main' }} />
-              <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700' }}>
-                Streaks & Badges
-              </Typography>
-            </Stack>
+          {/* Streaks & Gamification - Only for students */}
+          {!isTeacherView && (
+            <Paper elevation={0} sx={{ p: 3, mb: 3 }}>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                <EmojiEventsIcon sx={{ color: 'primary.main' }} />
+                <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700' }}>
+                  Streaks & Badges
+                </Typography>
+              </Stack>
             <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
               <LocalFireDepartmentIcon sx={{ color: 'warning.main', fontSize: 32 }} />
               <Typography variant="h5" sx={{ fontWeight: 600, color: 'neutral.700' }}>
@@ -187,12 +217,13 @@ export default function Dashboard() {
                 sx={{ height: 8, borderRadius: 4 }}
               />
             </Box>
-          </Paper>
+            </Paper>
+          )}
 
-          {/* Upcoming Assignments */}
+          {/* Upcoming Assignments / My Classes */}
           <Paper elevation={0} sx={{ p: 3, mb: 3 }}>
             <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700', mb: 2 }}>
-              Assigned to you
+              {isTeacherView ? 'My Classes' : 'Assigned to you'}
             </Typography>
             <Stack spacing={2}>
               {assignments.map((assignment) => (
@@ -238,14 +269,14 @@ export default function Dashboard() {
               sx={{ mt: 2 }}
               size="small"
             >
-              View all in My subjects
+              {isTeacherView ? 'View all classes' : 'View all in My subjects'}
             </Button>
           </Paper>
 
           {/* AI Recommendations */}
           <Paper elevation={0} sx={{ p: 3, mb: 3 }}>
             <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700', mb: 2 }}>
-              Recommended for you
+              {isTeacherView ? 'Recommended for your classes' : 'Recommended for you'}
             </Typography>
             <Stack spacing={2}>
               {recommendations.map((rec, idx) => (
@@ -310,34 +341,34 @@ export default function Dashboard() {
 
         {/* Right Column - Sidebar */}
         <Grid size={{ xs: 12, md: 4 }}>
-          {/* Today's Progress */}
+          {/* Today's Progress / Class Statistics */}
           <Paper elevation={0} sx={{ p: 3, mb: 3 }}>
             <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700', mb: 3 }}>
-              Today
+              {isTeacherView ? 'Class Activity Today' : 'Today'}
             </Typography>
             <Stack spacing={3}>
               <Box>
                 <Typography variant="body2" sx={{ color: 'neutral.500', mb: 0.5 }}>
-                  Questions answered today
+                  {isTeacherView ? 'Active students' : 'Questions answered today'}
                 </Typography>
                 <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main' }}>
-                  {todayProgress.questionsAnswered}
+                  {isTeacherView ? todayProgress.questionsAnswered : todayProgress.questionsAnswered}
                 </Typography>
               </Box>
               <Box>
                 <Typography variant="body2" sx={{ color: 'neutral.500', mb: 0.5 }}>
-                  Accuracy today
+                  {isTeacherView ? 'Assignments submitted' : 'Accuracy today'}
                 </Typography>
                 <Typography variant="h4" sx={{ fontWeight: 700, color: 'success.main' }}>
-                  {todayProgress.accuracy}%
+                  {isTeacherView ? `${todayProgress.accuracy}%` : `${todayProgress.accuracy}%`}
                 </Typography>
               </Box>
               <Box>
                 <Typography variant="body2" sx={{ color: 'neutral.500', mb: 0.5 }}>
-                  Time spent
+                  {isTeacherView ? 'Classes active' : 'Time spent'}
                 </Typography>
                 <Typography variant="h4" sx={{ fontWeight: 700, color: 'neutral.700' }}>
-                  {todayProgress.timeSpent} min
+                  {isTeacherView ? `${assignments.length}` : `${todayProgress.timeSpent} min`}
                 </Typography>
               </Box>
             </Stack>
@@ -362,8 +393,9 @@ export default function Dashboard() {
             </Box>
           </Paper>
 
-          {/* Leaderboard */}
-          <Paper elevation={0} sx={{ p: 3, mb: 3 }}>
+          {/* Leaderboard - Only for students */}
+          {!isTeacherView && (
+            <Paper elevation={0} sx={{ p: 3, mb: 3 }}>
             <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
               <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700' }}>
                 Class leaderboard
@@ -442,6 +474,7 @@ export default function Dashboard() {
               View full leaderboard
             </Button>
           </Paper>
+          )}
 
           {/* Notifications */}
           <Paper elevation={0} sx={{ p: 3 }}>

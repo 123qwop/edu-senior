@@ -56,6 +56,15 @@ export async function login(email: string, password: string) {
       if (data.refresh_token) {
         localStorage.setItem('refresh_token', data.refresh_token);
       }
+      // Fetch and store user role after login
+      try {
+        const userData = await getMe();
+        if (userData.role) {
+          localStorage.setItem('user_role', userData.role);
+        }
+      } catch (err) {
+        console.error('Failed to fetch user role:', err);
+      }
     }
     return data;
   } catch (err) {
@@ -82,5 +91,25 @@ export async function getMe() {
     throw new Error('Failed to fetch user data');
   }
 
-  return res.json();
+  const userData = await res.json();
+  // Store role in localStorage
+  if (userData.role) {
+    localStorage.setItem('user_role', userData.role);
+  }
+  return userData;
+}
+
+// Utility function to get user role from localStorage
+export function getUserRole(): string | null {
+  return localStorage.getItem('user_role');
+}
+
+// Utility function to check if user is a teacher
+export function isTeacher(): boolean {
+  return getUserRole() === 'teacher';
+}
+
+// Utility function to check if user is a student
+export function isStudent(): boolean {
+  return getUserRole() === 'student';
 }

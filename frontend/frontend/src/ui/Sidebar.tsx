@@ -10,8 +10,12 @@ import BarChartIcon from '@mui/icons-material/BarChart'
 import LightbulbIcon from '@mui/icons-material/Lightbulb'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import SettingsIcon from '@mui/icons-material/Settings'
+import ClassIcon from '@mui/icons-material/Class'
+import PeopleIcon from '@mui/icons-material/People'
+import { getUserRole } from '../api/authApi'
 
-const navigationItems = [
+// Student navigation items
+const studentNavigationItems = [
   { label: 'Home', path: '/dashboard', icon: HomeIcon },
   { label: 'Study sets', path: '/dashboard/study-sets', icon: MenuBookIcon },
   { label: 'My subjects', path: '/dashboard/subjects', icon: SubjectIcon },
@@ -23,8 +27,21 @@ const navigationItems = [
   { label: 'Settings', path: '/dashboard/settings', icon: SettingsIcon },
 ]
 
+// Teacher navigation items
+const teacherNavigationItems = [
+  { label: 'Home', path: '/dashboard', icon: HomeIcon },
+  { label: 'My Classes', path: '/dashboard/subjects', icon: ClassIcon },
+  { label: 'Study Materials', path: '/dashboard/study-sets', icon: MenuBookIcon },
+  { label: 'Student Progress', path: '/dashboard/analytics', icon: AnalyticsIcon },
+  { label: 'Statistics', path: '/statistics', icon: BarChartIcon },
+  { label: 'AI Recommendations', path: '/dashboard/ai-recommendations', icon: LightbulbIcon },
+  { label: 'Settings', path: '/dashboard/settings', icon: SettingsIcon },
+]
+
 export default function Sidebar() {
   const location = useLocation()
+  const userRole = getUserRole()
+  const navigationItems = userRole === 'teacher' ? teacherNavigationItems : studentNavigationItems
 
   return (
     <Paper
