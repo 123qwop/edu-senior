@@ -163,6 +163,15 @@ export default function LoginPage() {
                   Sign up
                 </Link>
               </Typography>
+              <Typography variant="body2" sx={{ color: 'neutral.500', textAlign: 'center' }}>
+                <Link
+                  component={RouterLink}
+                  to="/pwdreset"
+                  sx={{ color: 'primary.main', fontWeight: 600 }}
+                >
+                  Forgot password?
+                </Link>
+              </Typography>
             </Stack>
           </Grid>
           <Grid
