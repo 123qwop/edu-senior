@@ -4,6 +4,19 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from app.database.database import Base
+# Import all models so Alembic can detect them
+from app.auth.models import Role, RevokedToken, User
+from app.study_sets.models import (
+    StudySet,
+    StudySetTag,
+    Question,
+    QuestionOption,
+    Flashcard,
+    StudySetAssignment,
+    StudySetStudentAssignment,
+    StudySetProgress,
+    StudySetOffline,
+)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

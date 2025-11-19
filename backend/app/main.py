@@ -5,13 +5,16 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.auth import routes as auth_routes
+from app.study_sets import routes as study_sets_routes
 from app.database.database import Base, engine
 
 app = FastAPI(title="Edu Senior Backend")
 origins = [
     "http://localhost:5173",  # Vite
+    "http://localhost:5175",  # Vite (alternative port)
     "http://localhost:3000",  # CRA
     "http://127.0.0.1:5173",
+    "http://127.0.0.1:5175",
     "http://127.0.0.1:3000",
 ]
 
@@ -49,3 +52,4 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 Base.metadata.create_all(bind=engine)
 
 app.include_router(auth_routes.router, prefix="/auth", tags=["Authentication"])
+app.include_router(study_sets_routes.router, tags=["Study Sets"])
