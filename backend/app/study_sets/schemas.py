@@ -1,0 +1,88 @@
+from pydantic import BaseModel
+from typing import Optional, List
+from datetime import datetime
+from decimal import Decimal
+
+
+class StudySetCreate(BaseModel):
+    title: str
+    subject: str
+    type: str  # 'Flashcards', 'Quiz', 'Problem set'
+    level: Optional[str] = None
+    description: Optional[str] = None
+    tags: Optional[List[str]] = []
+    initialItem: Optional[dict] = None  # For the first item
+    assignment: Optional[dict] = None  # For assignment info
+
+
+class StudySetUpdate(BaseModel):
+    title: Optional[str] = None
+    subject: Optional[str] = None
+    type: Optional[str] = None
+    level: Optional[str] = None
+    description: Optional[str] = None
+    tags: Optional[List[str]] = None
+    is_shared: Optional[bool] = None
+    is_public: Optional[bool] = None
+
+
+class StudySetOut(BaseModel):
+    id: int
+    title: str
+    subject: Optional[str]
+    type: str
+    level: Optional[str]
+    description: Optional[str]
+    creator_id: int
+    created_at: datetime
+    updated_at: datetime
+    item_count: int
+    tags: List[str]
+    is_assigned: bool
+    is_downloaded: bool
+    mastery: Optional[float] = None
+
+    class Config:
+        from_attributes = True
+
+
+class QuestionCreate(BaseModel):
+    type: str  # 'flashcard', 'multiple_choice', 'true_false', 'short_answer', 'problem'
+    content: str
+    correct_answer: str
+    options: Optional[List[str]] = None  # For multiple choice
+    term: Optional[str] = None  # For flashcards
+    definition: Optional[str] = None  # For flashcards
+    problem: Optional[str] = None  # For problem sets
+    solution: Optional[str] = None  # For problem sets
+
+
+class QuestionOut(BaseModel):
+    id: int
+    set_id: int
+    type: str
+    content: str
+    correct_answer: str
+    options: Optional[List[str]] = None
+    term: Optional[str] = None
+    definition: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AssignmentCreate(BaseModel):
+    class_id: Optional[int] = None
+    assign_to_all: bool = True
+    student_ids: Optional[List[int]] = None
+    due_date: Optional[datetime] = None
+
+
+class ClassOut(BaseModel):
+    id: int
+    class_name: str
+    teacher_id: int
+
+    class Config:
+        from_attributes = True
+
