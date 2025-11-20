@@ -269,7 +269,7 @@ export default function Dashboard() {
               sx={{ mt: 2 }}
               size="small"
             >
-              {isTeacherView ? 'View all classes' : 'View all in My subjects'}
+              {isTeacherView ? 'View all classes' : 'View all in My classes'}
             </Button>
           </Paper>
 
