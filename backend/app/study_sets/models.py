@@ -136,3 +136,16 @@ class StudySetOffline(Base):
     set_id = Column(Integer, ForeignKey("public.studyset.set_id"), primary_key=True)
     downloaded_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
+
+class Class(Base):
+    __tablename__ = "class"
+    __table_args__ = {"schema": "public"}
+
+    class_id = Column(Integer, primary_key=True, index=True)
+    class_name = Column(String(100), nullable=False)
+    # Note: teacher_id references teacher table, but teacher.user_id references User.user_id
+    # So we can still query by user_id through the teacher table
+    teacher_id = Column(Integer, nullable=False)  # Foreign key is to teacher.teacher_id, not User.user_id directly
+    subject = Column(String(100), nullable=True)
+    level = Column(String(50), nullable=True)
+    description = Column(Text, nullable=True)
