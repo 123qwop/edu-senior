@@ -52,4 +52,4 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 Base.metadata.create_all(bind=engine)
 
 app.include_router(auth_routes.router, prefix="/auth", tags=["Authentication"])
-app.include_router(study_sets_routes.router, tags=["Study Sets"])
+app.include_router(study_sets_routes.router, prefix="/study-sets", tags=["Study Sets"])
