@@ -8,7 +8,8 @@ import DashboardLayout from './ui/DashboardLayout';
 import Dashboard from './pages/Dashboard';
 import Statistics from './pages/Statistics';
 import StudySets from './pages/StudySets';
-import Subjects from './pages/Subjects';
+import Classes from './pages/Classes';
+import ClassDetail from './pages/ClassDetail';
 import Downloads from './pages/Downloads';
 import Analytics from './pages/Analytics';
 import AIRecommendations from './pages/AIRecommendations';
@@ -28,7 +29,8 @@ export default function App() {
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/dashboard/study-sets" element={<StudySets />} />
-          <Route path="/dashboard/subjects" element={<Subjects />} />
+          <Route path="/dashboard/subjects" element={<Classes />} />
+          <Route path="/dashboard/classes/:classId" element={<ClassDetail />} />
           <Route path="/dashboard/downloads" element={<Downloads />} />
           <Route path="/dashboard/analytics" element={<Analytics />} />
           <Route path="/dashboard/ai-recommendations" element={<AIRecommendations />} />

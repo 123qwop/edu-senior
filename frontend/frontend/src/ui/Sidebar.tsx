@@ -3,7 +3,6 @@ import { Box, Divider, List, ListItemButton, ListItemText, Paper } from '@mui/ma
 import LogoutIcon from '@mui/icons-material/Logout'
 import HomeIcon from '@mui/icons-material/Home'
 import MenuBookIcon from '@mui/icons-material/MenuBook'
-import SubjectIcon from '@mui/icons-material/Subject'
 import DownloadIcon from '@mui/icons-material/Download'
 import AnalyticsIcon from '@mui/icons-material/Analytics'
 import BarChartIcon from '@mui/icons-material/BarChart'
@@ -18,7 +17,7 @@ import { getUserRole } from '../api/authApi'
 const studentNavigationItems = [
   { label: 'Home', path: '/dashboard', icon: HomeIcon },
   { label: 'Study sets', path: '/dashboard/study-sets', icon: MenuBookIcon },
-  { label: 'My subjects', path: '/dashboard/subjects', icon: SubjectIcon },
+  { label: 'My classes', path: '/dashboard/subjects', icon: ClassIcon },
   { label: 'Offline Downloads', path: '/dashboard/downloads', icon: DownloadIcon },
   { label: 'Progress and analytics', path: '/dashboard/analytics', icon: AnalyticsIcon },
   { label: 'Statistics', path: '/statistics', icon: BarChartIcon },
