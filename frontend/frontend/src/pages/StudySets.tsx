@@ -34,6 +34,7 @@ import { Link as RouterLink } from 'react-router-dom'
 import { getUserRole, isTeacher } from '../api/authApi'
 import { getStudySets, markStudySetOffline, removeStudySetOffline, type StudySetOut } from '../api/studySetsApi'
 import CreateStudySetDialog from '../components/CreateStudySetDialog'
+import EditStudySetDialog from '../components/EditStudySetDialog'
 
 // Helper function to format last activity
 function formatLastActivity(dateString: string | null): string {
@@ -54,9 +55,11 @@ interface StudySetCardProps {
   studySet: StudySetOut & { lastActivity?: string; isRecommended?: boolean; owner?: string }
   isTeacherView: boolean
   onToggleOffline: (setId: number, isDownloaded: boolean) => void
+  onEdit?: (studySet: StudySetOut) => void
+  userId?: number | null
 }
 
-function StudySetCard({ studySet, isTeacherView, onToggleOffline }: StudySetCardProps) {
+function StudySetCard({ studySet, isTeacherView, onToggleOffline, onEdit, userId }: StudySetCardProps) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const open = Boolean(anchorEl)
 
@@ -204,8 +207,7 @@ function StudySetCard({ studySet, isTeacherView, onToggleOffline }: StudySetCard
                 variant="contained"
                 size="small"
                 startIcon={<EditIcon />}
-                component={RouterLink}
-                to={`/dashboard/study-sets/${studySet.id}/edit`}
+                onClick={() => onEdit?.(studySet)}
                 sx={{ bgcolor: 'primary.main' }}
               >
                 Edit
@@ -218,16 +220,30 @@ function StudySetCard({ studySet, isTeacherView, onToggleOffline }: StudySetCard
               </IconButton>
             </>
           ) : (
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<PlayArrowIcon />}
-              component={RouterLink}
-              to={`/dashboard/study-sets/${studySet.id}/practice`}
-              sx={{ bgcolor: 'primary.main' }}
-            >
-              {studySet.mastery !== null && studySet.mastery > 0 ? 'Continue' : 'Study'}
-            </Button>
+            <>
+              <Button
+                variant="contained"
+                size="small"
+                startIcon={<PlayArrowIcon />}
+                component={RouterLink}
+                to={`/dashboard/study-sets/${studySet.id}/practice`}
+                sx={{ bgcolor: 'primary.main' }}
+              >
+                {studySet.mastery !== null && studySet.mastery > 0 ? 'Continue' : 'Study'}
+              </Button>
+              {/* Only show Edit button for personal study sets (not assigned ones) */}
+              {userId !== null && studySet.creator_id === userId && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<EditIcon />}
+                  onClick={() => onEdit?.(studySet)}
+                  sx={{ borderColor: 'primary.main', color: 'primary.main' }}
+                >
+                  Edit
+                </Button>
+              )}
+            </>
           )}
         </Stack>
 
@@ -252,6 +268,17 @@ function StudySetCard({ studySet, isTeacherView, onToggleOffline }: StudySetCard
 
       {/* More Menu */}
       <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
+        {/* Only show Edit option for personal study sets (not assigned ones for students) */}
+        {(isTeacherView || (userId !== null && studySet.creator_id === userId)) && (
+          <MenuItem 
+            onClick={() => {
+              onEdit?.(studySet)
+              handleClose()
+            }}
+          >
+            Edit
+          </MenuItem>
+        )}
         <MenuItem onClick={handleClose}>Duplicate set</MenuItem>
         <MenuItem onClick={handleClose}>View version history</MenuItem>
         {isTeacherView && <MenuItem onClick={handleClose}>Share</MenuItem>}
@@ -273,6 +300,8 @@ export default function StudySets() {
   const [userRole, setUserRole] = useState<string | null>(null)
   const [userId, setUserId] = useState<number | null>(null)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [selectedStudySet, setSelectedStudySet] = useState<StudySetOut | null>(null)
   const [studySets, setStudySets] = useState<StudySetOut[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -290,11 +319,12 @@ export default function StudySets() {
       if (sortBy) params.sort = sortBy
 
       const data = await getStudySets(params)
+      console.log('Fetched study sets:', data) // Debug log
       const enrichedData = data.map((set) => ({
         ...set,
         lastActivity: set.updated_at ? formatLastActivity(set.updated_at) : 'Never studied',
         isRecommended: false,
-        owner: set.creator_id === userId ? (userRole === 'teacher' ? 'teacher' : 'student') : 'other',
+        owner: userId !== null && set.creator_id === userId ? (userRole === 'teacher' ? 'teacher' : 'student') : 'other',
       }))
       setStudySets(enrichedData)
     } catch (err) {
@@ -322,10 +352,12 @@ export default function StudySets() {
     fetchUserInfo()
   }, [])
 
-  // Fetch study sets
+  // Fetch study sets - also refetch when userId changes
   useEffect(() => {
-    fetchStudySets()
-  }, [searchQuery, selectedSubject, selectedType, selectedOwnership, sortBy, userRole])
+    if (userId !== null || userRole !== null) {
+      fetchStudySets()
+    }
+  }, [searchQuery, selectedSubject, selectedType, selectedOwnership, sortBy, userRole, userId])
 
   const isTeacherView = isTeacher()
 
@@ -339,12 +371,26 @@ export default function StudySets() {
   const filteredSets = studySets.filter((set) => {
     // Tab filtering
     if (isTeacherView) {
-      if (currentTab === 0 && set.creator_id !== userId) return false // My sets - only show sets created by current user
-      if (currentTab === 1 && set.creator_id === userId) return false // Shared with me - exclude own sets
+      if (currentTab === 0) {
+        // My sets - only show sets created by current user
+        if (userId === null) return true // Show all if userId not loaded yet
+        return set.creator_id === userId
+      }
+      if (currentTab === 1) {
+        // Shared with me - exclude own sets
+        if (userId === null) return true // Show all if userId not loaded yet
+        return set.creator_id !== userId
+      }
       // Tab 2 (All) shows everything
+      return true
     } else {
+      if (currentTab === 0) return true // All - show everything
       if (currentTab === 1 && !set.is_assigned) return false // Assigned
-      if (currentTab === 2 && set.creator_id !== userId) return false // My sets - only show sets created by current user
+      if (currentTab === 2) {
+        // My sets - only show sets created by current user
+        if (userId === null) return true // Show all if userId not loaded yet
+        return set.creator_id === userId
+      }
       if (currentTab === 3 && !set.is_downloaded) return false // Offline
     }
 
@@ -504,7 +550,16 @@ export default function StudySets() {
         <Grid container spacing={3}>
           {filteredSets.map((studySet) => (
             <Grid key={studySet.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-              <StudySetCard studySet={studySet} isTeacherView={isTeacherView} onToggleOffline={handleToggleOffline} />
+              <StudySetCard 
+                studySet={studySet} 
+                isTeacherView={isTeacherView} 
+                onToggleOffline={handleToggleOffline}
+                onEdit={(set) => {
+                  setSelectedStudySet(set)
+                  setEditDialogOpen(true)
+                }}
+                userId={userId}
+              />
             </Grid>
           ))}
         </Grid>
@@ -521,6 +576,21 @@ export default function StudySets() {
         open={createDialogOpen}
         onClose={() => setCreateDialogOpen(false)}
         onSuccess={fetchStudySets}
+      />
+
+      {/* Edit Study Set Dialog */}
+      <EditStudySetDialog
+        open={editDialogOpen}
+        onClose={() => {
+          setEditDialogOpen(false)
+          setSelectedStudySet(null)
+        }}
+        onSuccess={() => {
+          fetchStudySets()
+          setEditDialogOpen(false)
+          setSelectedStudySet(null)
+        }}
+        studySet={selectedStudySet}
       />
     </Box>
   )
