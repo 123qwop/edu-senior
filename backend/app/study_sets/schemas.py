@@ -82,7 +82,35 @@ class ClassOut(BaseModel):
     id: int
     class_name: str
     teacher_id: int
+    subject: Optional[str] = None
+    level: Optional[str] = None
+    student_count: Optional[int] = 0
+    assignment_count: Optional[int] = 0
+    average_mastery: Optional[float] = None
 
     class Config:
         from_attributes = True
+
+
+class ClassCreate(BaseModel):
+    class_name: str
+    subject: str
+    level: Optional[str] = None
+    description: Optional[str] = None
+
+
+class ClassUpdate(BaseModel):
+    class_name: Optional[str] = None
+    subject: Optional[str] = None
+    level: Optional[str] = None
+    description: Optional[str] = None
+
+
+class AddStudentsRequest(BaseModel):
+    student_ids: List[int]
+
+
+class CreateAssignmentRequest(BaseModel):
+    set_id: int
+    due_date: Optional[datetime] = None
 
