@@ -38,3 +38,4 @@ def downgrade() -> None:
     # Remove subject column
     op.drop_column('class', 'subject', schema='public')
 
+

@@ -8,10 +8,12 @@ import DashboardLayout from './ui/DashboardLayout';
 import Dashboard from './pages/Dashboard';
 import Statistics from './pages/Statistics';
 import StudySets from './pages/StudySets';
+import Practice from './pages/Practice';
 import Classes from './pages/Classes';
 import ClassDetail from './pages/ClassDetail';
 import Downloads from './pages/Downloads';
 import Analytics from './pages/Analytics';
+import Progress from './pages/Progress';
 import AIRecommendations from './pages/AIRecommendations';
 import Gamification from './pages/Gamification';
 import Settings from './pages/Settings';
@@ -29,10 +31,12 @@ export default function App() {
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/dashboard/study-sets" element={<StudySets />} />
+          <Route path="/dashboard/study-sets/:setId/practice" element={<Practice />} />
           <Route path="/dashboard/subjects" element={<Classes />} />
           <Route path="/dashboard/classes/:classId" element={<ClassDetail />} />
           <Route path="/dashboard/downloads" element={<Downloads />} />
           <Route path="/dashboard/analytics" element={<Analytics />} />
+          <Route path="/dashboard/progress" element={<Progress />} />
           <Route path="/dashboard/ai-recommendations" element={<AIRecommendations />} />
           <Route path="/dashboard/gamification" element={<Gamification />} />
           <Route path="/dashboard/settings" element={<Settings />} />

@@ -114,3 +114,93 @@ class CreateAssignmentRequest(BaseModel):
     set_id: int
     due_date: Optional[datetime] = None
 
+
+class DashboardStats(BaseModel):
+    questions_answered: Optional[int] = None
+    accuracy: Optional[float] = None
+    time_spent: Optional[int] = None
+    active_students: Optional[int] = None
+    assignments_submitted: Optional[int] = None
+    classes_active: Optional[int] = None
+
+
+class DashboardAssignment(BaseModel):
+    id: int
+    title: str
+    due: Optional[str] = None
+    status: str
+    set_id: int
+
+
+class Recommendation(BaseModel):
+    topic: str
+    reason: str
+    difficulty: str
+    set_id: int
+
+
+class LeaderboardEntry(BaseModel):
+    rank: int
+    name: str
+    points: int
+
+
+class LeaderboardResponse(BaseModel):
+    leaderboard: List[LeaderboardEntry]
+    current_user_rank: Optional[LeaderboardEntry] = None
+
+
+class Badge(BaseModel):
+    name: str
+    icon: str
+
+
+class NextBadge(BaseModel):
+    name: str
+    progress: int
+    target: int
+
+
+class StreaksResponse(BaseModel):
+    streak: int
+    badges: List[Badge]
+    next_badge: Optional[NextBadge] = None
+
+
+class RecordProgressRequest(BaseModel):
+    answers: dict
+
+
+class StudySetAnalytics(BaseModel):
+    set_id: int
+    title: str
+    total_students: int
+    average_mastery: float
+    completion_rate: float
+    total_attempts: int
+
+
+class StudentProgress(BaseModel):
+    set_id: int
+    title: str
+    subject: Optional[str] = None
+    mastery_percentage: float
+    items_completed: int
+    total_items: int
+    last_activity: Optional[str] = None
+    attempts: int
+
+
+class AnalyticsResponse(BaseModel):
+    study_sets: List[StudySetAnalytics]
+    total_students: int
+    average_mastery: float
+    total_assignments: int
+
+
+class ProgressResponse(BaseModel):
+    study_sets: List[StudentProgress]
+    total_mastery: float
+    total_items_completed: int
+    total_items: int
+

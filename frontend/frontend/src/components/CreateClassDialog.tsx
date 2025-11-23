@@ -159,3 +159,4 @@ export default function CreateClassDialog({ open, onClose, onSuccess }: CreateCl
   )
 }
 
+

@@ -22,8 +22,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],  # <--- REQUIRED so OPTIONS is allowed
-    allow_headers=["*"],  # <--- REQUIRED so browser can send headers
+    allow_methods=["*"], 
+    allow_headers=["*"], 
 )
 
 # Global exception handler to ensure CORS headers are always sent
@@ -43,6 +43,28 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     return JSONResponse(
         status_code=exc.status_code,
         content={"detail": exc.detail},
+        headers={
+            "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
+            "Access-Control-Allow-Credentials": "true",
+        },
+    )
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    import traceback
+    print("=" * 80)
+    print("VALIDATION ERROR DETECTED:")
+    print(f"Path: {request.url.path}")
+    print(f"Query: {request.url.query}")
+    print(f"Method: {request.method}")
+    print(f"Errors: {exc.errors()}")
+    if hasattr(exc, 'body'):
+        print(f"Body: {exc.body}")
+    traceback.print_exc()
+    print("=" * 80)
+    return JSONResponse(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        content={"detail": exc.errors(), "body": str(exc.body) if hasattr(exc, 'body') else None},
         headers={
             "Access-Control-Allow-Origin": request.headers.get("origin", "*"),
             "Access-Control-Allow-Credentials": "true",

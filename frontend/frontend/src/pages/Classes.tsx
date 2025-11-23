@@ -1,8 +1,8 @@
-import { Box, Typography, Paper, Chip, CircularProgress, Alert, Button, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Menu, MenuItem, FormControl, InputLabel, Select, InputAdornment } from '@mui/material'
+import { Box, Typography, Paper, Chip, CircularProgress, Alert, Button, TextField, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Menu, MenuItem, FormControl, InputLabel, Select, InputAdornment, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions } from '@mui/material'
 import Grid from '@mui/material/Grid'
 import { useEffect, useState } from 'react'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
-import { getClasses, type ClassOut } from '../api/studySetsApi'
+import { getClasses, deleteClass, type ClassOut } from '../api/studySetsApi'
 import { getUserRole } from '../api/authApi'
 import ClassIcon from '@mui/icons-material/Class'
 import PeopleIcon from '@mui/icons-material/People'
@@ -32,6 +32,8 @@ export default function Classes() {
   const [selectedClassForAssignment, setSelectedClassForAssignment] = useState<number | null>(null)
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const userRole = getUserRole()
   const isTeacher = userRole === 'teacher'
   const navigate = useNavigate()
@@ -85,6 +87,29 @@ export default function Classes() {
     handleMenuClose()
   }
 
+  const handleArchiveClass = () => {
+    if (selectedClassId) {
+      setDeleteDialogOpen(true)
+    }
+    handleMenuClose()
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedClassId) return
+
+    try {
+      setDeleting(true)
+      await deleteClass(selectedClassId)
+      setDeleteDialogOpen(false)
+      setSelectedClassId(null)
+      fetchClasses()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete class')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   // Filter classes
   const filteredClasses = classes.filter((classItem) => {
     const matchesSearch = !searchQuery || 
@@ -132,11 +157,15 @@ export default function Classes() {
             {classes.map((classItem) => (
               <Grid key={classItem.id} size={{ xs: 12, sm: 6, md: 4 }}>
                 <Paper
+                  component={RouterLink}
+                  to={`/dashboard/classes/${classItem.id}`}
                   sx={{
                     p: 3,
                     height: '100%',
                     display: 'flex',
                     flexDirection: 'column',
+                    textDecoration: 'none',
+                    cursor: 'pointer',
                     '&:hover': {
                       boxShadow: 4,
                     },
@@ -381,8 +410,8 @@ export default function Classes() {
           Add Assignment
         </MenuItem>
         <MenuItem onClick={handleEditClass}>Edit Class</MenuItem>
-        <MenuItem onClick={handleMenuClose} sx={{ color: 'error.main' }}>
-          Archive Class
+        <MenuItem onClick={handleArchiveClass} sx={{ color: 'error.main' }}>
+          Delete Class
         </MenuItem>
       </Menu>
 
@@ -424,6 +453,24 @@ export default function Classes() {
           classId={selectedClassForAssignment}
         />
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => !deleting && setDeleteDialogOpen(false)}>
+        <DialogTitle>Delete Class</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete this class? This action cannot be undone. All students will be removed from the class and all assignments will be deleted.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button onClick={handleDeleteConfirm} color="error" variant="contained" disabled={deleting}>
+            {deleting ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
