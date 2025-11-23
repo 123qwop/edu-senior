@@ -19,8 +19,7 @@ const studentNavigationItems = [
   { label: 'Study sets', path: '/dashboard/study-sets', icon: MenuBookIcon },
   { label: 'My classes', path: '/dashboard/subjects', icon: ClassIcon },
   { label: 'Offline Downloads', path: '/dashboard/downloads', icon: DownloadIcon },
-  { label: 'Progress and analytics', path: '/dashboard/analytics', icon: AnalyticsIcon },
-  { label: 'Statistics', path: '/statistics', icon: BarChartIcon },
+  { label: 'Progress', path: '/dashboard/progress', icon: AnalyticsIcon },
   { label: 'AI Recommendations', path: '/dashboard/ai-recommendations', icon: LightbulbIcon },
   { label: 'Gamification', path: '/dashboard/gamification', icon: EmojiEventsIcon },
   { label: 'Settings', path: '/dashboard/settings', icon: SettingsIcon },
@@ -32,7 +31,6 @@ const teacherNavigationItems = [
   { label: 'My Classes', path: '/dashboard/subjects', icon: ClassIcon },
   { label: 'Study Materials', path: '/dashboard/study-sets', icon: MenuBookIcon },
   { label: 'Student Progress', path: '/dashboard/analytics', icon: AnalyticsIcon },
-  { label: 'Statistics', path: '/statistics', icon: BarChartIcon },
   { label: 'AI Recommendations', path: '/dashboard/ai-recommendations', icon: LightbulbIcon },
   { label: 'Settings', path: '/dashboard/settings', icon: SettingsIcon },
 ]
