@@ -1,7 +1,8 @@
-import { Box, Typography, Paper, Tabs, Tab, Chip, CircularProgress, Alert, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText } from '@mui/material'
+import { Box, Typography, Paper, Tabs, Tab, Chip, CircularProgress, Alert, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText, LinearProgress, Grid, Card, CardContent, Avatar, Stack } from '@mui/material'
 import { useEffect, useState } from 'react'
 import { useParams, Link as RouterLink } from 'react-router-dom'
-import { getClasses, getClassStudents, removeStudentFromClass, getClassAssignments, type ClassOut, type Student, type Assignment } from '../api/studySetsApi'
+import { getClasses, getClassStudents, removeStudentFromClass, getClassAssignments, getClassStudentsProgress, getLeaderboard, type ClassOut, type Student, type Assignment, type StudentProgressDetail, type LeaderboardResponse } from '../api/studySetsApi'
+import { getUserRole } from '../api/authApi'
 import ClassIcon from '@mui/icons-material/Class'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import PeopleIcon from '@mui/icons-material/People'
@@ -12,6 +13,7 @@ import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AddStudentsDialog from '../components/AddStudentsDialog'
 import AddAssignmentDialog from '../components/AddAssignmentDialog'
+import EmojiEvents from '@mui/icons-material/EmojiEvents'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -45,15 +47,21 @@ export default function ClassDetail() {
   const [classData, setClassData] = useState<ClassOut | null>(null)
   const [students, setStudents] = useState<Student[]>([])
   const [assignments, setAssignments] = useState<Assignment[]>([])
+  const [studentProgress, setStudentProgress] = useState<StudentProgressDetail[]>([])
+  const [leaderboard, setLeaderboard] = useState<LeaderboardResponse>({ leaderboard: [], current_user_rank: null })
   const [loading, setLoading] = useState(true)
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [loadingAssignments, setLoadingAssignments] = useState(false)
+  const [loadingProgress, setLoadingProgress] = useState(false)
+  const [loadingLeaderboard, setLoadingLeaderboard] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [addStudentsDialogOpen, setAddStudentsDialogOpen] = useState(false)
   const [addAssignmentDialogOpen, setAddAssignmentDialogOpen] = useState(false)
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false)
   const [studentToRemove, setStudentToRemove] = useState<Student | null>(null)
   const [removing, setRemoving] = useState(false)
+  const userRole = getUserRole()
+  const isTeacher = userRole === 'teacher'
 
   useEffect(() => {
     fetchClassData()
@@ -62,11 +70,20 @@ export default function ClassDetail() {
   useEffect(() => {
     if (classId && currentTab === 0) {
       fetchStudents()
+      if (isTeacher) {
+        fetchStudentProgress()
+      }
     }
     if (classId && currentTab === 1) {
       fetchAssignments()
     }
-  }, [classId, currentTab])
+    if (classId && currentTab === 2) {
+      fetchLeaderboard()
+    }
+    if (classId && currentTab === 3 && isTeacher) {
+      fetchStudentProgress()
+    }
+  }, [classId, currentTab, isTeacher])
 
   const fetchClassData = async () => {
     if (!classId) {
@@ -117,6 +134,63 @@ export default function ClassDetail() {
       console.error('Failed to fetch assignments:', err)
     } finally {
       setLoadingAssignments(false)
+    }
+  }
+
+  const fetchStudentProgress = async () => {
+    if (!classId || !isTeacher) return
+
+    try {
+      setLoadingProgress(true)
+      const data = await getClassStudentsProgress(parseInt(classId))
+      setStudentProgress(data)
+    } catch (err) {
+      console.error('Failed to fetch student progress:', err)
+    } finally {
+      setLoadingProgress(false)
+    }
+  }
+
+  const fetchLeaderboard = async () => {
+    if (!classId) return
+
+    try {
+      setLoadingLeaderboard(true)
+      if (isTeacher) {
+        // For teachers, create leaderboard from student progress data
+        // First ensure we have students and progress data
+        if (students.length === 0) {
+          await fetchStudents()
+        }
+        if (studentProgress.length === 0) {
+          await fetchStudentProgress()
+        }
+        
+        // Create leaderboard from progress data
+        const leaderboardData = studentProgress
+          .map((p) => {
+            const student = students.find((s) => s.id === p.student_id)
+            return {
+              rank: 0, // Will be set after sorting
+              name: student?.name || 'Unknown',
+              points: Math.round(p.average_mastery * 10), // Convert mastery to points
+            }
+          })
+          .sort((a, b) => b.points - a.points)
+          .map((entry, index) => ({
+            ...entry,
+            rank: index + 1,
+          }))
+        setLeaderboard({ leaderboard: leaderboardData, current_user_rank: null })
+      } else {
+        // For students, use the API endpoint
+        const data = await getLeaderboard(parseInt(classId))
+        setLeaderboard(data)
+      }
+    } catch (err) {
+      console.error('Failed to fetch leaderboard:', err)
+    } finally {
+      setLoadingLeaderboard(false)
     }
   }
 
@@ -271,14 +345,16 @@ export default function ClassDetail() {
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
                 Students ({students.length})
               </Typography>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setAddStudentsDialogOpen(true)}
-                sx={{ bgcolor: 'primary.main' }}
-              >
-                Add Students
-              </Button>
+              {isTeacher && (
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => setAddStudentsDialogOpen(true)}
+                  sx={{ bgcolor: 'primary.main' }}
+                >
+                  Add Students
+                </Button>
+              )}
             </Box>
           )}
 
@@ -291,13 +367,15 @@ export default function ClassDetail() {
               <Typography variant="body1" sx={{ color: 'neutral.500', mb: 2 }}>
                 No students enrolled yet.
               </Typography>
-              <Button
-                variant="contained"
-                startIcon={<AddIcon />}
-                onClick={() => setAddStudentsDialogOpen(true)}
-              >
-                Add Students
-              </Button>
+              {isTeacher && (
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => setAddStudentsDialogOpen(true)}
+                >
+                  Add Students
+                </Button>
+              )}
             </Paper>
           ) : (
             <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'neutral.300' }}>
@@ -306,45 +384,98 @@ export default function ClassDetail() {
                   <TableRow sx={{ bgcolor: 'neutral.50' }}>
                     <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
+                    {isTeacher && (
+                      <>
+                        <TableCell sx={{ fontWeight: 600 }}>Assignments</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Average Mastery</TableCell>
+                      </>
+                    )}
                     <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
+                    {isTeacher && <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {students.map((student) => (
-                    <TableRow
-                      key={student.id}
-                      hover
-                      sx={{
-                        '&:hover': {
-                          bgcolor: 'neutral.50',
-                        },
-                      }}
-                    >
-                      <TableCell>{student.name}</TableCell>
-                      <TableCell>{student.email}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label="Enrolled"
-                          size="small"
-                          sx={{
-                            bgcolor: 'success.50',
-                            color: 'success.main',
-                            fontWeight: 500,
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleRemoveClick(student)}
-                          sx={{ color: 'error.main' }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
+                  {loadingProgress && isTeacher ? (
+                    <TableRow>
+                      <TableCell colSpan={isTeacher ? 6 : 3} align="center" sx={{ py: 4 }}>
+                        <CircularProgress size={24} />
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ) : (
+                    students.map((student) => {
+                      const progress = isTeacher ? studentProgress.find(p => p.student_id === student.id) : null
+                      return (
+                        <TableRow
+                          key={student.id}
+                          hover
+                          sx={{
+                            '&:hover': {
+                              bgcolor: 'neutral.50',
+                            },
+                          }}
+                        >
+                          <TableCell>{student.name}</TableCell>
+                          <TableCell>{student.email}</TableCell>
+                          {isTeacher && (
+                            <>
+                              <TableCell>
+                                {progress ? (
+                                  <Typography variant="body2">
+                                    {progress.assignments_completed} / {progress.assignments_total}
+                                  </Typography>
+                                ) : (
+                                  <Typography variant="body2" sx={{ color: 'neutral.500' }}>
+                                    {assignments.length > 0 ? `0 / ${assignments.length}` : 'No assignments'}
+                                  </Typography>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {progress && progress.average_mastery > 0 ? (
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 150 }}>
+                                    <LinearProgress
+                                      variant="determinate"
+                                      value={progress.average_mastery}
+                                      sx={{ flexGrow: 1, height: 8, borderRadius: 4 }}
+                                      color={progress.average_mastery >= 80 ? 'success' : progress.average_mastery >= 60 ? 'warning' : 'error'}
+                                    />
+                                    <Typography variant="body2" sx={{ minWidth: 45, fontWeight: 600 }}>
+                                      {progress.average_mastery}%
+                                    </Typography>
+                                  </Box>
+                                ) : (
+                                  <Typography variant="body2" sx={{ color: 'neutral.500' }}>
+                                    -
+                                  </Typography>
+                                )}
+                              </TableCell>
+                            </>
+                          )}
+                          <TableCell>
+                            <Chip
+                              label="Enrolled"
+                              size="small"
+                              sx={{
+                                bgcolor: 'success.50',
+                                color: 'success.main',
+                                fontWeight: 500,
+                              }}
+                            />
+                          </TableCell>
+                          {isTeacher && (
+                            <TableCell>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleRemoveClick(student)}
+                                sx={{ color: 'error.main' }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      )
+                    })
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -356,14 +487,16 @@ export default function ClassDetail() {
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
               Assignments / Study Sets
             </Typography>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setAddAssignmentDialogOpen(true)}
-              sx={{ bgcolor: 'primary.main' }}
-            >
-              Add Assignment
-            </Button>
+            {isTeacher && (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => setAddAssignmentDialogOpen(true)}
+                sx={{ bgcolor: 'primary.main' }}
+              >
+                Add Assignment
+              </Button>
+            )}
           </Box>
 
           {loadingAssignments ? (
@@ -426,31 +559,237 @@ export default function ClassDetail() {
         </TabPanel>
 
         <TabPanel value={currentTab} index={2}>
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-            Leaderboard / Gamification
+          <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
+            Class Leaderboard
           </Typography>
-          <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-            Class leaderboard and gamification features will be displayed here. This section will show:
-            <ul>
-              <li>Student rankings</li>
-              <li>Points and achievements</li>
-              <li>Progress streaks</li>
-            </ul>
-          </Typography>
+
+          {loadingLeaderboard ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : leaderboard.leaderboard.length === 0 ? (
+            <Paper sx={{ p: 4, textAlign: 'center', bgcolor: 'neutral.50' }}>
+              <Typography variant="body1" sx={{ color: 'neutral.500' }}>
+                No leaderboard data available yet. Students need to complete assignments to appear on the leaderboard.
+              </Typography>
+            </Paper>
+          ) : (
+            <>
+              <TableContainer component={Paper} elevation={0} sx={{ border: '1px solid', borderColor: 'neutral.300', mb: 3 }}>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: 'neutral.50' }}>
+                      <TableCell sx={{ fontWeight: 600, width: 80 }}>Rank</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Student</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }} align="right">Points</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {leaderboard.leaderboard.map((entry) => (
+                      <TableRow
+                        key={entry.rank}
+                        hover
+                        sx={{
+                          '&:hover': {
+                            bgcolor: 'neutral.50',
+                          },
+                          ...(entry.rank <= 3 && {
+                            bgcolor: entry.rank === 1 ? 'warning.50' : entry.rank === 2 ? 'neutral.50' : 'success.50',
+                          }),
+                        }}
+                      >
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            {entry.rank === 1 && <EmojiEvents sx={{ color: 'warning.main', fontSize: 24 }} />}
+                            {entry.rank === 2 && <EmojiEvents sx={{ color: 'neutral.500', fontSize: 24 }} />}
+                            {entry.rank === 3 && <EmojiEvents sx={{ color: 'success.main', fontSize: 24 }} />}
+                            {entry.rank > 3 && (
+                              <Typography variant="h6" sx={{ fontWeight: 700, color: 'neutral.600', minWidth: 24 }}>
+                                {entry.rank}
+                              </Typography>
+                            )}
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                            {entry.name}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Chip
+                            label={entry.points}
+                            size="small"
+                            sx={{
+                              bgcolor: 'primary.50',
+                              color: 'primary.main',
+                              fontWeight: 600,
+                            }}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+
+              {leaderboard.current_user_rank && leaderboard.current_user_rank.rank > 10 && (
+                <Paper elevation={0} sx={{ p: 2, bgcolor: 'primary.50', border: '1px solid', borderColor: 'primary.main' }}>
+                  <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 600 }}>
+                    Your rank: #{leaderboard.current_user_rank.rank} ({leaderboard.current_user_rank.points} points)
+                  </Typography>
+                </Paper>
+              )}
+            </>
+          )}
         </TabPanel>
 
         <TabPanel value={currentTab} index={3}>
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-            Analytics
+          <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
+            Class Analytics
           </Typography>
-          <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-            Class analytics and summary statistics will be displayed here. This section will show:
-            <ul>
-              <li>Average accuracy across assignments</li>
-              <li>Class activity trends</li>
-              <li>Progress over time</li>
-            </ul>
-          </Typography>
+
+          {loadingProgress ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : studentProgress.length === 0 ? (
+            <Paper sx={{ p: 4, textAlign: 'center', bgcolor: 'neutral.50' }}>
+              <Typography variant="body1" sx={{ color: 'neutral.500' }}>
+                No analytics data available yet. Students need to complete assignments to see analytics.
+              </Typography>
+            </Paper>
+          ) : (
+            <>
+              <Grid container spacing={3} sx={{ mb: 3 }}>
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <Card elevation={0} sx={{ bgcolor: 'primary.main', color: 'white' }}>
+                    <CardContent>
+                      <Typography variant="h6" sx={{ mb: 1, opacity: 0.9 }}>
+                        Total Students
+                      </Typography>
+                      <Typography variant="h3" sx={{ fontWeight: 700 }}>
+                        {students.length}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <Card elevation={0} sx={{ bgcolor: 'success.main', color: 'white' }}>
+                    <CardContent>
+                      <Typography variant="h6" sx={{ mb: 1, opacity: 0.9 }}>
+                        Average Mastery
+                      </Typography>
+                      <Typography variant="h3" sx={{ fontWeight: 700 }}>
+                        {studentProgress.length > 0
+                          ? Math.round(
+                              studentProgress.reduce((sum, p) => sum + p.average_mastery, 0) / studentProgress.length
+                            )
+                          : 0}%
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <Card elevation={0} sx={{ bgcolor: 'secondary.main', color: 'white' }}>
+                    <CardContent>
+                      <Typography variant="h6" sx={{ mb: 1, opacity: 0.9 }}>
+                        Total Assignments
+                      </Typography>
+                      <Typography variant="h3" sx={{ fontWeight: 700 }}>
+                        {assignments.length}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              </Grid>
+
+              <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'neutral.200' }}>
+                <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'neutral.200' }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    Student Performance Overview
+                  </Typography>
+                </Box>
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: 'neutral.50' }}>
+                        <TableCell sx={{ fontWeight: 600 }}>Student</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Assignments Completed</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Average Mastery</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>Progress</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {studentProgress.map((progress) => {
+                        const student = students.find((s) => s.id === progress.student_id)
+                        return (
+                          <TableRow key={progress.student_id} hover>
+                            <TableCell>
+                              <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                                {student?.name || 'Unknown'}
+                              </Typography>
+                              <Typography variant="body2" sx={{ color: 'neutral.500' }}>
+                                {student?.email || ''}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2">
+                                {progress.assignments_completed} / {progress.assignments_total}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 150 }}>
+                                <LinearProgress
+                                  variant="determinate"
+                                  value={progress.average_mastery}
+                                  sx={{ flexGrow: 1, height: 8, borderRadius: 4 }}
+                                  color={
+                                    progress.average_mastery >= 80
+                                      ? 'success'
+                                      : progress.average_mastery >= 60
+                                      ? 'warning'
+                                      : 'error'
+                                  }
+                                />
+                                <Typography variant="body2" sx={{ minWidth: 45, fontWeight: 600 }}>
+                                  {progress.average_mastery}%
+                                </Typography>
+                              </Box>
+                            </TableCell>
+                            <TableCell>
+                              {progress.assignments_total > 0 ? (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 150 }}>
+                                  <LinearProgress
+                                    variant="determinate"
+                                    value={(progress.assignments_completed / progress.assignments_total) * 100}
+                                    sx={{ flexGrow: 1, height: 8, borderRadius: 4 }}
+                                    color={
+                                      progress.assignments_completed === progress.assignments_total
+                                        ? 'success'
+                                        : progress.assignments_completed > 0
+                                        ? 'warning'
+                                        : 'error'
+                                    }
+                                  />
+                                  <Typography variant="body2" sx={{ minWidth: 60, fontWeight: 600 }}>
+                                    {Math.round((progress.assignments_completed / progress.assignments_total) * 100)}%
+                                  </Typography>
+                                </Box>
+                              ) : (
+                                <Typography variant="body2" sx={{ color: 'neutral.500' }}>
+                                  No assignments
+                                </Typography>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+            </>
+          )}
         </TabPanel>
       </Paper>
 
