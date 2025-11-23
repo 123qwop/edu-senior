@@ -19,6 +19,7 @@ import {
   LinearProgress,
   InputAdornment,
   Paper,
+  CircularProgress,
 } from '@mui/material'
 import Grid from '@mui/material/Grid'
 import SearchIcon from '@mui/icons-material/Search'
@@ -31,10 +32,16 @@ import AssignmentIcon from '@mui/icons-material/Assignment'
 import AnalyticsIcon from '@mui/icons-material/Analytics'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import { Link as RouterLink } from 'react-router-dom'
-import { getUserRole, isTeacher } from '../api/authApi'
-import { getStudySets, markStudySetOffline, removeStudySetOffline, type StudySetOut } from '../api/studySetsApi'
+import { getUserRole, isTeacher, getMe } from '../api/authApi'
+import { getStudySets, deleteStudySet, getStudySet, getStudySetQuestions, type StudySetOut } from '../api/studySetsApi'
 import CreateStudySetDialog from '../components/CreateStudySetDialog'
 import EditStudySetDialog from '../components/EditStudySetDialog'
+import StudySetContentEditor from '../components/StudySetContentEditor'
+import { useNavigate } from 'react-router-dom'
+import { Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material'
+import { downloadStudySet, removeDownloadedStudySet, isStudySetDownloaded, getAllDownloadedStudySets, initDB } from '../utils/offlineStorage'
+import { useOnlineStatus } from '../hooks/useOnlineStatus'
+import { syncOfflineAttempts } from '../utils/syncOfflineAttempts'
 
 // Helper function to format last activity
 function formatLastActivity(dateString: string | null): string {
@@ -52,14 +59,21 @@ function formatLastActivity(dateString: string | null): string {
 }
 
 interface StudySetCardProps {
-  studySet: StudySetOut & { lastActivity?: string; isRecommended?: boolean; owner?: string }
+  studySet: StudySetOut & { lastActivity?: string; isRecommended?: boolean; owner?: string; isDownloaded?: boolean }
   isTeacherView: boolean
-  onToggleOffline: (setId: number, isDownloaded: boolean) => void
+  onDownload?: (setId: number) => void
+  onRemoveDownload?: (setId: number) => void
+  isDownloading?: boolean
+  isOnline?: boolean
   onEdit?: (studySet: StudySetOut) => void
+  onEditContent?: (studySet: StudySetOut) => void
+  onDelete?: (setId: number) => void
+  onAssign?: (studySet: StudySetOut) => void
+  onView?: (studySet: StudySetOut) => void
   userId?: number | null
 }
 
-function StudySetCard({ studySet, isTeacherView, onToggleOffline, onEdit, userId }: StudySetCardProps) {
+function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, isDownloading, isOnline, onEdit, onEditContent, userId, onDelete, onAssign, onView }: StudySetCardProps) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const open = Boolean(anchorEl)
 
@@ -171,7 +185,7 @@ function StudySetCard({ studySet, isTeacherView, onToggleOffline, onEdit, userId
               sx={{ bgcolor: 'primary.50', color: 'primary.main', fontSize: '0.75rem' }}
             />
           )}
-          {studySet.is_downloaded && (
+          {studySet.isDownloaded && (
             <Chip
               label="Downloaded"
               size="small"
@@ -210,12 +224,36 @@ function StudySetCard({ studySet, isTeacherView, onToggleOffline, onEdit, userId
                 onClick={() => onEdit?.(studySet)}
                 sx={{ bgcolor: 'primary.main' }}
               >
-                Edit
+                Edit Details
               </Button>
-              <IconButton size="small" sx={{ color: 'neutral.500' }}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => onEditContent?.(studySet)}
+                sx={{ borderColor: 'primary.main', color: 'primary.main' }}
+              >
+                Edit Content
+              </Button>
+              <IconButton
+                size="small"
+                sx={{ color: 'neutral.500' }}
+                onClick={() => {
+                  onAssign?.(studySet)
+                  handleClose()
+                }}
+                title="Assign to class"
+              >
                 <AssignmentIcon fontSize="small" />
               </IconButton>
-              <IconButton size="small" sx={{ color: 'neutral.500' }}>
+              <IconButton
+                size="small"
+                sx={{ color: 'neutral.500' }}
+                onClick={() => {
+                  onView?.(studySet)
+                  handleClose()
+                }}
+                title="View analytics"
+              >
                 <AnalyticsIcon fontSize="small" />
               </IconButton>
             </>
@@ -231,33 +269,64 @@ function StudySetCard({ studySet, isTeacherView, onToggleOffline, onEdit, userId
               >
                 {studySet.mastery !== null && studySet.mastery > 0 ? 'Continue' : 'Study'}
               </Button>
-              {/* Only show Edit button for personal study sets (not assigned ones) */}
               {userId !== null && studySet.creator_id === userId && (
-                <Button
-                  variant="outlined"
-                  size="small"
-                  startIcon={<EditIcon />}
-                  onClick={() => onEdit?.(studySet)}
-                  sx={{ borderColor: 'primary.main', color: 'primary.main' }}
-                >
-                  Edit
-                </Button>
+                <>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<EditIcon />}
+                    onClick={() => onEdit?.(studySet)}
+                    sx={{ borderColor: 'primary.main', color: 'primary.main' }}
+                  >
+                    Edit Details
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={() => onEditContent?.(studySet)}
+                    sx={{ borderColor: 'primary.main', color: 'primary.main' }}
+                  >
+                    Edit Content
+                  </Button>
+                </>
               )}
             </>
           )}
         </Stack>
 
         <Stack direction="row" spacing={0.5}>
+          {!isTeacherView && (
+            <IconButton
+              size="small"
+              onClick={() => {
+                if (studySet.isDownloaded) {
+                  onRemoveDownload?.(studySet.id)
+                } else {
+                  onDownload?.(studySet.id)
+                }
+              }}
+              disabled={!isOnline && !studySet.isDownloaded}
+              title={studySet.isDownloaded ? 'Remove download' : 'Download for offline'}
+              sx={{ 
+                color: studySet.isDownloaded ? 'success.main' : 'neutral.500',
+                '&:disabled': { opacity: 0.5 }
+              }}
+            >
+              {isDownloading ? (
+                <CircularProgress size={20} />
+              ) : studySet.isDownloaded ? (
+                <DownloadIcon fontSize="small" />
+              ) : (
+                <CloudDownloadIcon fontSize="small" />
+              )}
+            </IconButton>
+          )}
           <IconButton
             size="small"
             sx={{ color: 'neutral.500' }}
-            onClick={() => {
-              onToggleOffline(studySet.id, studySet.is_downloaded)
-            }}
+            onClick={() => onView?.(studySet)}
+            title="View details"
           >
-            {studySet.is_downloaded ? <CloudDownloadIcon fontSize="small" /> : <DownloadIcon fontSize="small" />}
-          </IconButton>
-          <IconButton size="small" sx={{ color: 'neutral.500' }}>
             <VisibilityIcon fontSize="small" />
           </IconButton>
           <IconButton size="small" onClick={handleClick} sx={{ color: 'neutral.500' }}>
@@ -268,7 +337,6 @@ function StudySetCard({ studySet, isTeacherView, onToggleOffline, onEdit, userId
 
       {/* More Menu */}
       <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
-        {/* Only show Edit option for personal study sets (not assigned ones for students) */}
         {(isTeacherView || (userId !== null && studySet.creator_id === userId)) && (
           <MenuItem 
             onClick={() => {
@@ -276,13 +344,56 @@ function StudySetCard({ studySet, isTeacherView, onToggleOffline, onEdit, userId
               handleClose()
             }}
           >
-            Edit
+            Edit Details
           </MenuItem>
         )}
-        <MenuItem onClick={handleClose}>Duplicate set</MenuItem>
-        <MenuItem onClick={handleClose}>View version history</MenuItem>
-        {isTeacherView && <MenuItem onClick={handleClose}>Share</MenuItem>}
-        <MenuItem onClick={handleClose} sx={{ color: 'error.main' }}>
+        {(isTeacherView || (userId !== null && studySet.creator_id === userId)) && (
+          <MenuItem 
+            onClick={() => {
+              onEditContent?.(studySet)
+              handleClose()
+            }}
+          >
+            Edit Content
+          </MenuItem>
+        )}
+        <MenuItem
+          onClick={() => {
+            handleClose()
+            onView?.(studySet)
+          }}
+        >
+          View details
+        </MenuItem>
+        {isTeacherView && (
+          <MenuItem
+            onClick={() => {
+              onAssign?.(studySet)
+              handleClose()
+            }}
+          >
+            Assign to class
+          </MenuItem>
+        )}
+        {isTeacherView && (
+          <MenuItem
+            onClick={() => {
+              onView?.(studySet)
+              handleClose()
+            }}
+          >
+            View analytics
+          </MenuItem>
+        )}
+        <MenuItem
+          onClick={() => {
+            if (window.confirm('Are you sure you want to delete this study set? This action cannot be undone.')) {
+              onDelete?.(studySet.id)
+            }
+            handleClose()
+          }}
+          sx={{ color: 'error.main' }}
+        >
           Delete
         </MenuItem>
       </Menu>
@@ -291,6 +402,11 @@ function StudySetCard({ studySet, isTeacherView, onToggleOffline, onEdit, userId
 }
 
 export default function StudySets() {
+  const navigate = useNavigate()
+  const isOnline = useOnlineStatus()
+  const [studySets, setStudySets] = useState<(StudySetOut & { lastActivity?: string; isRecommended?: boolean; owner?: string; isDownloaded?: boolean })[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedSubject, setSelectedSubject] = useState('')
   const [selectedType, setSelectedType] = useState('')
@@ -299,12 +415,14 @@ export default function StudySets() {
   const [currentTab, setCurrentTab] = useState(0)
   const [userRole, setUserRole] = useState<string | null>(null)
   const [userId, setUserId] = useState<number | null>(null)
+  const [downloadingSetId, setDownloadingSetId] = useState<number | null>(null)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [selectedStudySet, setSelectedStudySet] = useState<StudySetOut | null>(null)
-  const [studySets, setStudySets] = useState<StudySetOut[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false)
+  const [selectedStudySetForAssign, setSelectedStudySetForAssign] = useState<StudySetOut | null>(null)
+  const [contentEditorOpen, setContentEditorOpen] = useState(false)
+  const [selectedStudySetForContent, setSelectedStudySetForContent] = useState<StudySetOut | null>(null)
 
   // Function to fetch study sets (extracted for reuse)
   const fetchStudySets = async () => {
@@ -320,12 +438,27 @@ export default function StudySets() {
 
       const data = await getStudySets(params)
       console.log('Fetched study sets:', data) // Debug log
+      
+      // Check which sets are downloaded
+      const downloadedSetIds = new Set<number>()
+      if (!isTeacherView) {
+        for (const set of data) {
+          const isDownloaded = await isStudySetDownloaded(set.id)
+          if (isDownloaded) {
+            downloadedSetIds.add(set.id)
+          }
+        }
+      }
+      
       const enrichedData = data.map((set) => ({
         ...set,
         lastActivity: set.updated_at ? formatLastActivity(set.updated_at) : 'Never studied',
         isRecommended: false,
         owner: userId !== null && set.creator_id === userId ? (userRole === 'teacher' ? 'teacher' : 'student') : 'other',
+        isDownloaded: downloadedSetIds.has(set.id),
+        is_downloaded: downloadedSetIds.has(set.id),
       }))
+      console.log('Enriched study sets with download status:', enrichedData.filter(s => s.isDownloaded).length, 'downloaded')
       setStudySets(enrichedData)
     } catch (err) {
       console.error('Failed to fetch study sets:', err)
@@ -336,6 +469,7 @@ export default function StudySets() {
   }
 
   useEffect(() => {
+    initDB()
     setUserRole(getUserRole())
     // Get user ID from API
     const fetchUserInfo = async () => {
@@ -350,14 +484,71 @@ export default function StudySets() {
       }
     }
     fetchUserInfo()
-  }, [])
+
+    // Sync offline attempts when coming online
+    if (isOnline) {
+      syncOfflineAttempts().then(({ synced }) => {
+        if (synced > 0) {
+          console.log(`Synced ${synced} offline attempts`)
+        }
+      })
+    }
+  }, [isOnline])
 
   // Fetch study sets - also refetch when userId changes
   useEffect(() => {
     if (userId !== null || userRole !== null) {
-      fetchStudySets()
+      if (isOnline) {
+        fetchStudySets()
+      } else {
+        // When offline, show only downloaded sets
+        loadDownloadedSets()
+      }
     }
-  }, [searchQuery, selectedSubject, selectedType, selectedOwnership, sortBy, userRole, userId])
+  }, [searchQuery, selectedSubject, selectedType, selectedOwnership, sortBy, userRole, userId, isOnline, currentTab])
+  
+  // When switching to Offline tab, reload downloaded sets (works both online and offline)
+  useEffect(() => {
+    if (currentTab === 3 && !isTeacherView) {
+      loadDownloadedSets()
+    }
+  }, [currentTab])
+
+  const loadDownloadedSets = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const downloaded = await getAllDownloadedStudySets()
+      console.log('Loaded downloaded sets from IndexedDB:', downloaded.length, downloaded.map(s => ({ id: s.set_id, title: s.title })))
+      const enrichedData = downloaded.map((set) => ({
+        id: set.set_id,
+        title: set.title,
+        subject: set.subject || null,
+        type: set.type,
+        level: set.level || null,
+        description: set.description || null,
+        creator_id: 0,
+        created_at: new Date(set.downloaded_at).toISOString(),
+        updated_at: new Date(set.downloaded_at).toISOString(),
+        item_count: set.questions ? set.questions.length : 0,
+        tags: [],
+        is_assigned: false,
+        is_downloaded: true,
+        mastery: null,
+        lastActivity: 'Downloaded',
+        isRecommended: false,
+        owner: 'other',
+        isDownloaded: true,
+      }))
+      console.log('Enriched downloaded sets:', enrichedData.length, enrichedData.map(s => ({ id: s.id, title: s.title, isDownloaded: s.isDownloaded })))
+      setStudySets(enrichedData)
+    } catch (err) {
+      console.error('Failed to load downloaded sets:', err)
+      setError('Failed to load downloaded study sets')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const isTeacherView = isTeacher()
 
@@ -391,38 +582,97 @@ export default function StudySets() {
         if (userId === null) return true // Show all if userId not loaded yet
         return set.creator_id === userId
       }
-      if (currentTab === 3 && !set.is_downloaded) return false // Offline
+      if (currentTab === 3) {
+        // Offline tab - only show downloaded sets
+        // Check both isDownloaded flag and verify in IndexedDB
+        if (!set.isDownloaded && !set.is_downloaded) {
+          return false
+        }
+        return true
+      }
     }
 
     return true
   })
 
-  const handleToggleOffline = async (setId: number, isDownloaded: boolean) => {
-    try {
-      if (isDownloaded) {
-        await removeStudySetOffline(setId)
-      } else {
-        await markStudySetOffline(setId)
-      }
-      // Refresh study sets
-      const data = await getStudySets({
-        search: searchQuery || undefined,
-        subject: selectedSubject || undefined,
-        type: selectedType || undefined,
-        ownership: selectedOwnership || undefined,
-        sort: sortBy,
-      })
-      const enrichedData = data.map((set) => ({
-        ...set,
-        lastActivity: set.updated_at ? formatLastActivity(set.updated_at) : 'Never studied',
-        isRecommended: false,
-        owner: set.creator_id === userId ? (userRole === 'teacher' ? 'teacher' : 'student') : 'other',
-      }))
-      setStudySets(enrichedData)
-    } catch (err) {
-      console.error('Failed to toggle offline status:', err)
-      alert(err instanceof Error ? err.message : 'Failed to update offline status')
+  const handleDownloadForOffline = async (setId: number) => {
+    if (!isOnline) {
+      alert('You must be online to download study sets')
+      return
     }
+
+    try {
+      setDownloadingSetId(setId)
+      const [studySet, questions] = await Promise.all([
+        getStudySet(setId),
+        getStudySetQuestions(setId),
+      ])
+      
+      console.log('Downloading study set:', studySet.id, 'with', questions.length, 'questions')
+      await downloadStudySet(studySet, questions)
+      console.log('Successfully downloaded study set to IndexedDB')
+      
+      // Verify it was saved
+      const isDownloaded = await isStudySetDownloaded(setId)
+      console.log('Verification - isDownloaded:', isDownloaded)
+      
+      // Always update the current list
+      setStudySets(prev => prev.map(set => 
+        set.id === setId ? { ...set, isDownloaded: true, is_downloaded: true } : set
+      ))
+      
+      // If we're on the Offline tab, reload all downloaded sets to show the new one
+      if (currentTab === 3) {
+        console.log('On Offline tab, reloading all downloaded sets...')
+        await loadDownloadedSets()
+      }
+      
+      alert('Study set downloaded successfully!')
+    } catch (err) {
+      console.error('Failed to download study set:', err)
+      alert(err instanceof Error ? err.message : 'Failed to download study set')
+    } finally {
+      setDownloadingSetId(null)
+    }
+  }
+
+  const handleRemoveDownload = async (setId: number) => {
+    try {
+      await removeDownloadedStudySet(setId)
+      setStudySets(prev => prev.map(set => 
+        set.id === setId ? { ...set, isDownloaded: false } : set
+      ))
+    } catch (err) {
+      console.error('Failed to remove downloaded study set:', err)
+      alert(err instanceof Error ? err.message : 'Failed to remove downloaded study set')
+    }
+  }
+
+  const handleDelete = async (setId: number) => {
+    try {
+      await deleteStudySet(setId)
+      fetchStudySets()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete study set')
+    }
+  }
+
+  const handleAssign = (studySet: StudySetOut) => {
+    setSelectedStudySetForAssign(studySet)
+    setAssignDialogOpen(true)
+  }
+
+  const handleView = (studySet: StudySetOut) => {
+    if (isTeacherView) {
+      navigate(`/dashboard/analytics?setId=${studySet.id}`)
+    } else {
+      navigate(`/dashboard/study-sets/${studySet.id}/practice`)
+    }
+  }
+
+  const handleEditContent = (studySet: StudySetOut) => {
+    setSelectedStudySetForContent(studySet)
+    setContentEditorOpen(true)
   }
 
   return (
@@ -440,6 +690,17 @@ export default function StudySets() {
           ))}
         </Tabs>
       </Box>
+
+      {/* Offline Status Indicator */}
+      {!isOnline && (
+        <Paper elevation={0} sx={{ p: 2, mb: 2, bgcolor: 'warning.50', border: '1px solid', borderColor: 'warning.main', borderRadius: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="body2" sx={{ color: 'warning.main', fontWeight: 600 }}>
+              ⚠️ Offline Mode - Only downloaded study sets are available
+            </Typography>
+          </Box>
+        </Paper>
+      )}
 
       {/* Toolbar */}
       <Paper elevation={0} sx={{ p: 2, mb: 3, bgcolor: 'neutral.50', borderRadius: 2 }}>
@@ -553,11 +814,18 @@ export default function StudySets() {
               <StudySetCard 
                 studySet={studySet} 
                 isTeacherView={isTeacherView} 
-                onToggleOffline={handleToggleOffline}
+                onDownload={handleDownloadForOffline}
+                onRemoveDownload={handleRemoveDownload}
+                isDownloading={downloadingSetId === studySet.id}
+                isOnline={isOnline}
                 onEdit={(set) => {
                   setSelectedStudySet(set)
                   setEditDialogOpen(true)
                 }}
+                onEditContent={handleEditContent}
+                onDelete={handleDelete}
+                onAssign={handleAssign}
+                onView={handleView}
                 userId={userId}
               />
             </Grid>
@@ -591,6 +859,40 @@ export default function StudySets() {
           setSelectedStudySet(null)
         }}
         studySet={selectedStudySet}
+      />
+
+      {/* Assign Study Set Dialog - Navigate to classes for now */}
+      {assignDialogOpen && (
+        <Dialog open={assignDialogOpen} onClose={() => setAssignDialogOpen(false)}>
+          <DialogTitle>Assign Study Set</DialogTitle>
+          <DialogContent>
+            <Typography>
+              To assign this study set, please go to the Classes page and select a class, then use the "Add Assignment" option.
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setAssignDialogOpen(false)}>Cancel</Button>
+            <Button
+              variant="contained"
+              onClick={() => {
+                setAssignDialogOpen(false)
+                navigate('/dashboard/subjects')
+              }}
+            >
+              Go to Classes
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
+
+      {/* Content Editor Dialog */}
+      <StudySetContentEditor
+        open={contentEditorOpen}
+        onClose={() => {
+          setContentEditorOpen(false)
+          setSelectedStudySetForContent(null)
+        }}
+        studySet={selectedStudySetForContent}
       />
     </Box>
   )
