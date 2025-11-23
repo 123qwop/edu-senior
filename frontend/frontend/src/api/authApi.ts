@@ -113,3 +113,42 @@ export function isTeacher(): boolean {
 export function isStudent(): boolean {
   return getUserRole() === 'student';
 }
+
+export interface UserUpdate {
+  full_name?: string;
+  email?: string;
+  password?: string;
+}
+
+export async function updateProfile(data: UserUpdate) {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    throw new Error('No token found');
+  }
+
+  const res = await fetch(`${API_URL}/auth/me`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    let errorData;
+    try {
+      errorData = await res.json();
+    } catch {
+      errorData = { detail: `Update failed: ${res.status} ${res.statusText}` };
+    }
+    throw new Error(errorData.detail || 'Failed to update profile');
+  }
+
+  const userData = await res.json();
+  // Update role in localStorage if it changed
+  if (userData.role) {
+    localStorage.setItem('user_role', userData.role);
+  }
+  return userData;
+}
