@@ -1,7 +1,8 @@
 from datetime import datetime, timedelta
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.auth import auth_utils, deps, models, schemas
@@ -46,9 +47,34 @@ def register(payload: schemas.UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=schemas.Token)
-def login(form: schemas.LoginIn, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.email == form.email).first()
-    if not user or not auth_utils.verify_password(form.password, user.password_hash):
+async def login(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    content_type = request.headers.get("content-type", "").lower()
+    email = None
+    password = None
+    
+    if "application/json" in content_type:
+        try:
+            body = await request.json()
+            email = body.get("email")
+            password = body.get("password")
+        except Exception:
+            pass
+    else:
+        try:
+            form_data = await request.form()
+            email = form_data.get("username") or form_data.get("email")
+            password = form_data.get("password")
+        except Exception:
+            pass
+    
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="Email and password are required")
+    
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user or not auth_utils.verify_password(password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     access_token, access_jti = auth_utils.create_access_token(
@@ -123,6 +149,40 @@ def read_me(current_user=Depends(deps.get_current_user)):
         "email": current_user.email,
         "full_name": current_user.name,
         "role": current_user.role.name if current_user.role else None,
+    }
+
+
+@router.put("/me", response_model=schemas.UserOut)
+def update_me(
+    payload: schemas.UserUpdate,
+    current_user=Depends(deps.get_current_user),
+    db: Session = Depends(get_db),
+):
+    user = db.query(models.User).filter(models.User.user_id == current_user.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Check if email is being changed and if it's already taken
+    if payload.email and payload.email != user.email:
+        existing_user = db.query(models.User).filter(models.User.email == payload.email).first()
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        user.email = payload.email
+    
+    if payload.full_name:
+        user.name = payload.full_name
+    
+    if payload.password:
+        user.password_hash = auth_utils.get_password_hash(payload.password)
+    
+    db.commit()
+    db.refresh(user)
+    
+    return {
+        "id": user.user_id,
+        "email": user.email,
+        "full_name": user.name,
+        "role": user.role.name if user.role else None,
     }
 
 
