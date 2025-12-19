@@ -782,18 +782,42 @@ def delete_class(
     if not is_teacher:
         raise HTTPException(status_code=403, detail="Only teachers can delete classes")
     
-    teacher_query = text("SELECT teacher_id FROM public.teacher WHERE teacher_id = :user_id")
-    teacher_result = db.execute(teacher_query, {"user_id": current_user.user_id})
-    teacher_row = teacher_result.first()
-    if not teacher_row:
-        raise HTTPException(status_code=404, detail="Teacher record not found")
-    
-    teacher_id = teacher_row[0]
-    
-    class_query = text("SELECT class_id FROM public.class WHERE class_id = :class_id AND teacher_id = :teacher_id")
-    class_result = db.execute(class_query, {"class_id": class_id, "teacher_id": teacher_id})
+    class_query = text("""
+        SELECT class_id
+        FROM public.class
+        WHERE class_id = :class_id AND teacher_id = :teacher_id
+    """)
+    class_result = db.execute(class_query, {"class_id": class_id, "teacher_id": current_user.user_id})
     if not class_result.first():
         raise HTTPException(status_code=403, detail="You don't have permission to delete this class")
+    
+    # Delete related student assignment records
+    assignment_ids_query = text("""
+        SELECT assignment_id FROM public.study_set_assignment WHERE class_id = :class_id
+    """)
+    assignment_rows = db.execute(assignment_ids_query, {"class_id": class_id}).fetchall()
+    assignment_ids = [row[0] for row in assignment_rows] if assignment_rows else []
+    
+    if assignment_ids:
+        placeholders = ", ".join([f":aid_{i}" for i in range(len(assignment_ids))])
+        delete_student_assignments = text(f"""
+            DELETE FROM public.study_set_student_assignment
+            WHERE assignment_id IN ({placeholders})
+        """)
+        db.execute(delete_student_assignments, {f"aid_{i}": assignment_ids[i] for i in range(len(assignment_ids))})
+        
+        delete_assignments = text("""
+            DELETE FROM public.study_set_assignment
+            WHERE class_id = :class_id
+        """)
+        db.execute(delete_assignments, {"class_id": class_id})
+    
+    # Remove student enrollments
+    delete_enrollments = text("""
+        DELETE FROM public.enrollment
+        WHERE class_id = :class_id
+    """)
+    db.execute(delete_enrollments, {"class_id": class_id})
     
     delete_query = text("DELETE FROM public.class WHERE class_id = :class_id")
     db.execute(delete_query, {"class_id": class_id})
@@ -965,25 +989,33 @@ def get_class_assignments(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Get all assignments for a class"""
+    """Get all assignments for a class (teachers and enrolled students)"""
     is_teacher = current_user.role and current_user.role.name.lower() == "teacher"
-    if not is_teacher:
-        raise HTTPException(status_code=403, detail="Only teachers can view class assignments")
+    is_student = current_user.role and current_user.role.name.lower() == "student"
     
-    # Verify class ownership
-    teacher_query = text("SELECT teacher_id FROM public.teacher WHERE teacher_id = :user_id")
-    teacher_result = db.execute(teacher_query, {"user_id": current_user.user_id})
-    teacher_row = teacher_result.first()
-    if not teacher_row:
-        raise HTTPException(status_code=404, detail="Teacher record not found")
-    
-    teacher_id = teacher_row[0]
-    
-    # Check if class belongs to teacher
-    class_query = text("SELECT class_id FROM public.class WHERE class_id = :class_id AND teacher_id = :teacher_id")
-    class_result = db.execute(class_query, {"class_id": class_id, "teacher_id": teacher_id})
-    if not class_result.first():
-        raise HTTPException(status_code=403, detail="You don't have permission to view this class")
+    if is_teacher:
+        # Verify class ownership for teachers
+        teacher_query = text("SELECT teacher_id FROM public.teacher WHERE teacher_id = :user_id")
+        teacher_result = db.execute(teacher_query, {"user_id": current_user.user_id})
+        teacher_row = teacher_result.first()
+        if not teacher_row:
+            raise HTTPException(status_code=404, detail="Teacher record not found")
+        
+        teacher_id = teacher_row[0]
+        
+        # Check if class belongs to teacher
+        class_query = text("SELECT class_id FROM public.class WHERE class_id = :class_id AND teacher_id = :teacher_id")
+        class_result = db.execute(class_query, {"class_id": class_id, "teacher_id": teacher_id})
+        if not class_result.first():
+            raise HTTPException(status_code=403, detail="You don't have permission to view this class")
+    elif is_student:
+        # For students, check if they're enrolled in the class
+        enrollment_query = text("SELECT class_id FROM public.enrollment WHERE class_id = :class_id AND user_id = :user_id")
+        enrollment_result = db.execute(enrollment_query, {"class_id": class_id, "user_id": current_user.user_id})
+        if not enrollment_result.first():
+            raise HTTPException(status_code=403, detail="You are not enrolled in this class")
+    else:
+        raise HTTPException(status_code=403, detail="Only teachers and students can view class assignments")
     
     # Get assignments with study set details
     assignments_query = text("""
