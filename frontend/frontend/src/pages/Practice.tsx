@@ -139,7 +139,7 @@ export default function Practice() {
             {question.content}
           </FormLabel>
           <RadioGroup
-            value={answers[question.id] || ''}
+            value={answers[question.id] ?? ''}
             onChange={(e) => handleAnswerChange(question.id, e.target.value)}
           >
             {question.options?.map((option, idx) => (
@@ -163,8 +163,8 @@ export default function Practice() {
             {question.content}
           </FormLabel>
           <RadioGroup
-            value={answers[question.id] || ''}
-            onChange={(e) => handleAnswerChange(question.id, e.target.value === 'true')}
+            value={answers[question.id] ?? ''}
+            onChange={(e) => handleAnswerChange(question.id, e.target.value)}
           >
             <FormControlLabel
               value="true"
@@ -318,7 +318,7 @@ export default function Practice() {
         <Button
           variant="contained"
           onClick={handleNext}
-          disabled={!answers[currentQuestion.id] && currentQuestion.type !== 'flashcard'}
+          disabled={currentQuestion.type !== 'flashcard' && (answers[currentQuestion.id] === undefined || answers[currentQuestion.id] === '')}
           sx={{ bgcolor: 'primary.main' }}
         >
           {currentQuestionIndex === questions.length - 1 ? 'Submit' : 'Next'}

@@ -91,7 +91,13 @@ export default function Classes() {
     if (selectedClassId) {
       setDeleteDialogOpen(true)
     }
-    handleMenuClose()
+    setAnchorEl(null)
+  }
+
+  const handleDeleteDialogClose = () => {
+    if (deleting) return
+    setDeleteDialogOpen(false)
+    setSelectedClassId(null)
   }
 
   const handleDeleteConfirm = async () => {
@@ -455,7 +461,7 @@ export default function Classes() {
       )}
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => !deleting && setDeleteDialogOpen(false)}>
+      <Dialog open={deleteDialogOpen} onClose={handleDeleteDialogClose}>
         <DialogTitle>Delete Class</DialogTitle>
         <DialogContent>
           <DialogContentText>
@@ -463,7 +469,7 @@ export default function Classes() {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
+          <Button onClick={handleDeleteDialogClose} disabled={deleting}>
             Cancel
           </Button>
           <Button onClick={handleDeleteConfirm} color="error" variant="contained" disabled={deleting}>
