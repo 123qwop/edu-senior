@@ -231,3 +231,5 @@ def get_default_beginner_set(user_id: int, db: Session) -> Optional[Dict[str, An
     
     return None
 
+
+
