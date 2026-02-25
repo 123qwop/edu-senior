@@ -1,4 +1,8 @@
-const API_URL = 'http://localhost:8000';
+export const API_URL = 'http://localhost:8000';
+
+const defaultFetchOptions: RequestInit = {
+  credentials: 'include', // send httpOnly cookies to backend
+};
 
 export async function register(data: {
   email: string;
@@ -8,6 +12,7 @@ export async function register(data: {
 }) {
   try {
     const res = await fetch(`${API_URL}/auth/register`, {
+      ...defaultFetchOptions,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -32,12 +37,17 @@ export async function register(data: {
   }
 }
 
-export async function login(email: string, password: string) {
+export async function login(
+  email: string,
+  password: string,
+  rememberMe: boolean = false
+) {
   try {
     const res = await fetch(`${API_URL}/auth/login`, {
+      ...defaultFetchOptions,
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, remember_me: rememberMe }),
     });
 
     if (!res.ok) {
@@ -51,12 +61,8 @@ export async function login(email: string, password: string) {
     }
 
     const data = await res.json();
+    // Auth is stored in httpOnly cookies; only cache role for UI (e.g. sidebar)
     if (data.access_token) {
-      localStorage.setItem('token', data.access_token);
-      if (data.refresh_token) {
-        localStorage.setItem('refresh_token', data.refresh_token);
-      }
-      // Fetch and store user role after login
       try {
         const userData = await getMe();
         if (userData.role) {
@@ -76,23 +82,17 @@ export async function login(email: string, password: string) {
 }
 
 export async function getMe() {
-  const token = localStorage.getItem('token');
-  if (!token) {
-    throw new Error('No token found');
-  }
-
   const res = await fetch(`${API_URL}/auth/me`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
+    ...defaultFetchOptions,
+    headers: { 'Content-Type': 'application/json' },
   });
 
   if (!res.ok) {
+    if (res.status === 401) throw new Error('Not authenticated');
     throw new Error('Failed to fetch user data');
   }
 
   const userData = await res.json();
-  // Store role in localStorage
   if (userData.role) {
     localStorage.setItem('user_role', userData.role);
   }
@@ -121,17 +121,10 @@ export interface UserUpdate {
 }
 
 export async function updateProfile(data: UserUpdate) {
-  const token = localStorage.getItem('token');
-  if (!token) {
-    throw new Error('No token found');
-  }
-
   const res = await fetch(`${API_URL}/auth/me`, {
+    ...defaultFetchOptions,
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
 
@@ -151,4 +144,31 @@ export async function updateProfile(data: UserUpdate) {
     localStorage.setItem('user_role', userData.role);
   }
   return userData;
+}
+
+/**
+ * Permanently delete the current user's account. On success, clears local state
+ * and redirects to backend logout (to clear cookies) then to login.
+ */
+export async function deleteAccount(): Promise<void> {
+  const res = await fetch(`${API_URL}/auth/me`, {
+    ...defaultFetchOptions,
+    method: 'DELETE',
+  });
+
+  if (!res.ok) {
+    let errorData;
+    try {
+      errorData = await res.json();
+    } catch {
+      errorData = { detail: `Delete failed: ${res.status} ${res.statusText}` };
+    }
+    throw new Error(errorData.detail || 'Failed to delete account');
+  }
+
+  localStorage.removeItem('user_role');
+  localStorage.removeItem('token');
+  localStorage.removeItem('refresh_token');
+  // Redirect to backend logout to clear cookies, then to frontend login
+  window.location.href = `${API_URL}/auth/logout`;
 }
