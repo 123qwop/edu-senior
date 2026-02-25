@@ -1,10 +1,15 @@
-import { useState } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
 import {
+  Alert,
   Box,
   Button,
   Checkbox,
   Container,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   FormControlLabel,
   IconButton,
@@ -25,10 +30,15 @@ import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import signupIllustration from '../assets/signup-illustration.png';
 import logo from '../assets/logo.png';
-import { register, login } from '../api/authApi';
+import { register, login, API_URL } from '../api/authApi';
+
+const GOOGLE_OAUTH_URL = `${API_URL}/auth/google/start`;
+const GITHUB_OAUTH_URL = `${API_URL}/auth/github/start`;
 
 export default function SignupPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [accountExistsShown, setAccountExistsShown] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [fullName, setFullName] = useState('');
@@ -37,6 +47,13 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [role, setRole] = useState('student');
   const [loading, setLoading] = useState(false);
+  const [oauthRoleDialog, setOauthRoleDialog] = useState<'google' | 'github' | null>(null);
+
+  const startOAuthSignup = (provider: 'google' | 'github', chosenRole: 'student' | 'teacher') => {
+    setOauthRoleDialog(null);
+    const base = provider === 'google' ? GOOGLE_OAUTH_URL : GITHUB_OAUTH_URL;
+    window.location.href = `${base}?flow=signup&role=${encodeURIComponent(chosenRole)}`;
+  };
   const handleSignup = async () => {
     if (!fullName.trim()) {
       alert('Please enter your full name');
@@ -82,6 +99,14 @@ export default function SignupPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (searchParams.get('error') === 'account_exists') {
+      setAccountExistsShown(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   return (
     <Container
       sx={{
@@ -136,6 +161,11 @@ export default function SignupPage() {
                 Sign Up to Access AED
               </Typography>
             </Stack>
+            {accountExistsShown && (
+              <Alert severity="info" onClose={() => setAccountExistsShown(false)}>
+                An account with this email already exists. Please log in instead.
+              </Alert>
+            )}
             <Stack spacing={3}>
               <TextField
                 label="Full Name"
@@ -226,24 +256,65 @@ export default function SignupPage() {
                 {loading ? 'Creating Account...' : 'Create Account'}
               </Button>
               <Typography variant="body2" sx={{ color: 'neutral.500', textAlign: 'center' }}>
-                or Sign Up with
+                or Sign up with
               </Typography>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="center">
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="center" alignItems="center">
                 <Button
                   variant="outlined"
                   startIcon={<GoogleIcon />}
-                  sx={{ color: 'neutral.700', borderColor: 'neutral.300' }}
+                  onClick={() => setOauthRoleDialog('google')}
+                  sx={{
+                    borderColor: 'neutral.300',
+                    color: 'neutral.700',
+                    '&:hover': { borderColor: 'neutral.500', bgcolor: 'action.hover' },
+                  }}
                 >
                   Google
                 </Button>
                 <Button
                   variant="outlined"
                   startIcon={<GitHubIcon />}
-                  sx={{ color: 'neutral.700', borderColor: 'neutral.300' }}
+                  onClick={() => setOauthRoleDialog('github')}
+                  sx={{
+                    borderColor: 'neutral.300',
+                    color: 'neutral.700',
+                    '&:hover': { borderColor: 'neutral.500', bgcolor: 'action.hover' },
+                  }}
                 >
                   GitHub
                 </Button>
               </Stack>
+              <Dialog open={oauthRoleDialog !== null} onClose={() => setOauthRoleDialog(null)}>
+                <DialogTitle>
+                  Choose your role to sign up with {oauthRoleDialog === 'google' ? 'Google' : 'GitHub'}
+                </DialogTitle>
+                <DialogContent>
+                  <Typography variant="body2" sx={{ color: 'neutral.600' }}>
+                    Select how you will use the platform. You can then pick your {oauthRoleDialog === 'google' ? 'Google' : 'GitHub'} account to continue.
+                  </Typography>
+                </DialogContent>
+                <DialogActions sx={{ flexDirection: 'column', gap: 1, px: 3, pb: 2 }}>
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    onClick={() => oauthRoleDialog && startOAuthSignup(oauthRoleDialog, 'student')}
+                    sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.300' } }}
+                  >
+                    Continue as Student
+                  </Button>
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    onClick={() => oauthRoleDialog && startOAuthSignup(oauthRoleDialog, 'teacher')}
+                    sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.300' } }}
+                  >
+                    Continue as Teacher
+                  </Button>
+                  <Button variant="text" onClick={() => setOauthRoleDialog(null)}>
+                    Cancel
+                  </Button>
+                </DialogActions>
+              </Dialog>
               <Typography variant="body2" sx={{ color: 'neutral.500', textAlign: 'center' }}>
                 Already have an account?{' '}
                 <Link
