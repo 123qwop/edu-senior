@@ -11,7 +11,7 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import SettingsIcon from '@mui/icons-material/Settings'
 import ClassIcon from '@mui/icons-material/Class'
 import PeopleIcon from '@mui/icons-material/People'
-import { getUserRole } from '../api/authApi'
+import { getUserRole, API_URL } from '../api/authApi'
 
 // Student navigation items
 const studentNavigationItems = [
@@ -95,8 +95,8 @@ export default function Sidebar() {
         <Divider sx={{ my: 2 }} />
         <Box sx={{ px: 2, pb: 2 }}>
           <ListItemButton
-            component={RouterLink}
-            to="/login"
+            component="a"
+            href={`${API_URL}/auth/logout`}
             sx={{
               borderRadius: 2,
               color: 'neutral.700',
