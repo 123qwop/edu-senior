@@ -9,9 +9,14 @@ import {
   CircularProgress,
   Divider,
   Stack,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material'
 import Grid from '@mui/material/Grid'
-import { getMe, updateProfile, type UserUpdate } from '../api/authApi'
+import { getMe, updateProfile, deleteAccount, type UserUpdate } from '../api/authApi'
 
 export default function Settings() {
   const [loading, setLoading] = useState(true)
@@ -24,6 +29,8 @@ export default function Settings() {
     password: '',
     confirmPassword: '',
   })
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     fetchUserData()
@@ -213,6 +220,55 @@ export default function Settings() {
           </Grid>
         </form>
       </Paper>
+
+      <Paper elevation={0} sx={{ p: 4, mt: 4, border: '1px solid', borderColor: 'neutral.200' }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700', mb: 1 }}>
+          Delete account
+        </Typography>
+        <Typography variant="body2" sx={{ color: 'neutral.600', mb: 2 }}>
+          Permanently delete your account and all associated data. This cannot be undone.
+        </Typography>
+        <Button
+          variant="outlined"
+          color="error"
+          onClick={() => setDeleteDialogOpen(true)}
+          disabled={deleting}
+        >
+          Delete my account
+        </Button>
+      </Paper>
+
+      <Dialog open={deleteDialogOpen} onClose={() => !deleting && setDeleteDialogOpen(false)}>
+        <DialogTitle>Delete account?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This will permanently delete your account and all your data (study sets, progress, classes, etc.).
+            This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
+            Cancel
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={async () => {
+              setDeleting(true)
+              try {
+                await deleteAccount()
+              } catch (err) {
+                setError(err instanceof Error ? err.message : 'Failed to delete account')
+                setDeleting(false)
+                setDeleteDialogOpen(false)
+              }
+            }}
+            disabled={deleting}
+          >
+            {deleting ? 'Deleting...' : 'Delete account'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
