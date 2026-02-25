@@ -1,6 +1,7 @@
-import { useState } from 'react';
-import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
 import {
+  Alert,
   Box,
   Button,
   Checkbox,
@@ -23,11 +24,19 @@ import loginIllustration from '../assets/login-illustration.png';
 import logo from '../assets/logo.png';
 import { login } from '../api/authApi';
 
+// Hardcoded so OAuth buttons always work even if API_URL fails to load (flow=login for login page)
+const GOOGLE_OAUTH_URL = 'http://localhost:8000/auth/google/start?flow=login';
+const GITHUB_OAUTH_URL = 'http://localhost:8000/auth/github/start?flow=login';
+
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [oauthErrorShown, setOauthErrorShown] = useState(false);
+  const [noAccountShown, setNoAccountShown] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const handleLogin = async () => {
     if (!email.trim()) {
@@ -42,7 +51,7 @@ export default function LoginPage() {
 
     try {
       setLoading(true);
-      await login(email.trim(), password);
+      await login(email.trim(), password, rememberMe);
       navigate('/dashboard');
     } catch (err: unknown) {
       console.error(err);
@@ -52,6 +61,19 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  // Show OAuth errors from URL and clear param so it doesn't persist on refresh
+  useEffect(() => {
+    const error = searchParams.get('error');
+    if (error === 'oauth_failed') {
+      setOauthErrorShown(true);
+      setSearchParams({}, { replace: true });
+    } else if (error === 'no_account') {
+      setNoAccountShown(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   return (
     <Container
       sx={{
@@ -88,6 +110,16 @@ export default function LoginPage() {
             <Typography variant="h4" sx={{ fontWeight: 600, color: 'neutral.700' }}>
               Login to Access AED
             </Typography>
+            {oauthErrorShown && (
+              <Alert severity="error" onClose={() => setOauthErrorShown(false)}>
+                Sign in with Google or GitHub failed. Please try again or use email and password.
+              </Alert>
+            )}
+            {noAccountShown && (
+              <Alert severity="info" onClose={() => setNoAccountShown(false)}>
+                No account found with this Google or GitHub account. Please sign up first.
+              </Alert>
+            )}
             <Stack spacing={3}>
               <TextField
                 label="Email Address"
@@ -115,7 +147,13 @@ export default function LoginPage() {
                 }}
               />
               <FormControlLabel
-                control={<Checkbox defaultChecked={false} sx={{ color: 'neutral.500' }} />}
+                control={
+                  <Checkbox
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    sx={{ color: 'neutral.500' }}
+                  />
+                }
                 label="Remember me"
                 sx={{ color: 'neutral.500' }}
               />
@@ -136,22 +174,61 @@ export default function LoginPage() {
                   direction={{ xs: 'column', sm: 'row' }}
                   spacing={1.5}
                   justifyContent="center"
+                  alignItems="center"
                 >
-                  <Button
-                    variant="outlined"
-                    startIcon={<GoogleIcon />}
-                    sx={{ color: 'neutral.700', borderColor: 'neutral.300' }}
+                  <Box
+                    component="a"
+                    href={GOOGLE_OAUTH_URL}
+                    target="_self"
+                    rel="noopener noreferrer"
+                    sx={{
+                      border: '1px solid',
+                      borderColor: 'neutral.300',
+                      color: 'neutral.700',
+                      borderRadius: 1,
+                      px: 2,
+                      py: 1.5,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      textDecoration: 'none',
+                      '&:hover': { bgcolor: 'action.hover' },
+                    }}
                   >
-                    Google
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    startIcon={<GitHubIcon />}
-                    sx={{ color: 'neutral.700', borderColor: 'neutral.300' }}
+                    <GoogleIcon /> Google
+                  </Box>
+                  <Box
+                    component="a"
+                    href={GITHUB_OAUTH_URL}
+                    target="_self"
+                    rel="noopener noreferrer"
+                    sx={{
+                      border: '1px solid',
+                      borderColor: 'neutral.300',
+                      color: 'neutral.700',
+                      borderRadius: 1,
+                      px: 2,
+                      py: 1.5,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      textDecoration: 'none',
+                      '&:hover': { bgcolor: 'action.hover' },
+                    }}
                   >
-                    GitHub
-                  </Button>
+                    <GitHubIcon /> GitHub
+                  </Box>
                 </Stack>
+                <Typography variant="caption" sx={{ color: 'neutral.500', textAlign: 'center' }}>
+                  Or open:{' '}
+                  <Link component="a" href={GOOGLE_OAUTH_URL} target="_self" sx={{ fontWeight: 600 }}>
+                    Google
+                  </Link>
+                  {' · '}
+                  <Link component="a" href={GITHUB_OAUTH_URL} target="_self" sx={{ fontWeight: 600 }}>
+                    GitHub
+                  </Link>
+                </Typography>
               </Stack>
               <Typography variant="body2" sx={{ color: 'neutral.500', textAlign: 'center' }}>
                 Don&apos;t have an account?{' '}
