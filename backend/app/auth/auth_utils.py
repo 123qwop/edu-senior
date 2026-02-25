@@ -13,6 +13,9 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS"))
+# When "Remember me" is checked: longer-lived tokens (default 30 days access, 90 days refresh)
+REMEMBER_ME_ACCESS_TOKEN_DAYS = int(os.getenv("REMEMBER_ME_ACCESS_TOKEN_DAYS", "30"))
+REMEMBER_ME_REFRESH_TOKEN_DAYS = int(os.getenv("REMEMBER_ME_REFRESH_TOKEN_DAYS", "90"))
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
@@ -42,10 +45,17 @@ def create_jwt(
     return encoded_jwt, jti
 
 
-def create_access_token(subject: str, role: Optional[str] = None) -> Tuple[str, str]:
+def create_access_token(
+    subject: str, role: Optional[str] = None, remember_me: bool = False
+) -> Tuple[str, str]:
     extra = {"role": role} if role else {}
-    return create_jwt(subject, timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES), extra)
+    if remember_me:
+        expires = timedelta(days=REMEMBER_ME_ACCESS_TOKEN_DAYS)
+    else:
+        expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    return create_jwt(subject, expires, extra)
 
 
-def create_refresh_token(subject: str) -> Tuple[str, str]:
-    return create_jwt(subject, timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS), None)
+def create_refresh_token(subject: str, remember_me: bool = False) -> Tuple[str, str]:
+    days = REMEMBER_ME_REFRESH_TOKEN_DAYS if remember_me else REFRESH_TOKEN_EXPIRE_DAYS
+    return create_jwt(subject, timedelta(days=days), None)
