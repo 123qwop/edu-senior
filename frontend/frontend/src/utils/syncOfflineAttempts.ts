@@ -2,14 +2,7 @@ import { getUnsyncedAttempts, markAttemptsAsSynced, deleteSyncedAttempts } from 
 import { API_URL } from '../api/studySetsApi'
 
 function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem('token')
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  }
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  }
-  return headers
+  return { 'Content-Type': 'application/json' }
 }
 
 export async function syncOfflineAttempts(): Promise<{ synced: number; failed: number }> {
@@ -22,6 +15,7 @@ export async function syncOfflineAttempts(): Promise<{ synced: number; failed: n
   try {
     const response = await fetch(`${API_URL}/study-sets/attempts/batch`, {
       method: 'POST',
+      credentials: 'include',
       headers: getAuthHeaders(),
       body: JSON.stringify({
         attempts: unsyncedAttempts.map(attempt => ({
