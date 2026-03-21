@@ -2507,12 +2507,43 @@ def get_recommendations(
         )
         
         for study_set in class_assignments.all():
-            recommendations.append({
-                "topic": study_set.title,
-                "reason": "New assignment in your class",
-                "difficulty": study_set.level or "Medium",
-                "set_id": study_set.set_id,
-            })
+            class_row = (
+                db.query(models.StudySetAssignment, models.Class)
+                .join(
+                    models.Class,
+                    models.Class.class_id == models.StudySetAssignment.class_id,
+                )
+                .filter(
+                    models.StudySetAssignment.set_id == study_set.set_id,
+                    models.StudySetAssignment.class_id.in_(enrolled_class_ids),
+                )
+                .first()
+            )
+            class_name = class_row[1].class_name if class_row and class_row[1] else ""
+            if class_name:
+                recommendations.append(
+                    {
+                        "topic": study_set.title,
+                        "topicIsSubject": False,
+                        "reason": "New assignment in your class",
+                        "reasonKey": "recommendations.reasonNewAssignmentInClass",
+                        "reasonParams": {"className": class_name},
+                        "difficulty": study_set.level or "Medium",
+                        "set_id": study_set.set_id,
+                    }
+                )
+            else:
+                recommendations.append(
+                    {
+                        "topic": study_set.title,
+                        "topicIsSubject": False,
+                        "reason": "New assignment in your class",
+                        "reasonKey": "recommendations.reasonNewAssignmentGeneric",
+                        "reasonParams": {},
+                        "difficulty": study_set.level or "Medium",
+                        "set_id": study_set.set_id,
+                    }
+                )
     
     low_mastery = (
         db.query(models.StudySet)
@@ -2528,12 +2559,17 @@ def get_recommendations(
     )
     
     for study_set in low_mastery.all():
-        recommendations.append({
-            "topic": study_set.title,
-            "reason": "You missed questions last time",
-            "difficulty": study_set.level or "Medium",
-            "set_id": study_set.set_id,
-        })
+        recommendations.append(
+            {
+                "topic": study_set.title,
+                "topicIsSubject": False,
+                "reason": "You missed questions last time",
+                "reasonKey": "recommendations.reasonMissedQuestions",
+                "reasonParams": {},
+                "difficulty": study_set.level or "Medium",
+                "set_id": study_set.set_id,
+            }
+        )
     
     return recommendations
 
@@ -2556,8 +2592,11 @@ def get_next_recommendation(
             "studySetId": None,
             "title": None,
             "topic": None,
+            "topicIsSubject": False,
             "difficulty": None,
             "reason": "No recommendations available at this time.",
+            "reasonKey": "recommendations.reasonNone",
+            "reasonParams": {},
         }
     
     return recommendation
@@ -2700,31 +2739,145 @@ def get_all_badges(
     
     earned_badges = []
     if streak >= 3:
-        earned_badges.append({"name": "Consistency", "icon": "🔥", "description": f"{streak}-day streak", "earned": True})
+        earned_badges.append(
+            {
+                "badge_id": "consistency",
+                "name": "Consistency",
+                "icon": "🔥",
+                "description": f"{streak}-day streak",
+                "earned": True,
+                "i18n_params": {"count": streak},
+            }
+        )
     if total_quizzes >= 5:
-        earned_badges.append({"name": "Quick Learner", "icon": "⚡", "description": f"{total_quizzes} quizzes completed", "earned": True})
+        earned_badges.append(
+            {
+                "badge_id": "quick_learner",
+                "name": "Quick Learner",
+                "icon": "⚡",
+                "description": f"{total_quizzes} quizzes completed",
+                "earned": True,
+                "i18n_params": {"count": total_quizzes},
+            }
+        )
     if streak >= 7:
-        earned_badges.append({"name": "Week Warrior", "icon": "💪", "description": "7+ day streak", "earned": True})
+        earned_badges.append(
+            {
+                "badge_id": "week_warrior",
+                "name": "Week Warrior",
+                "icon": "💪",
+                "description": "7+ day streak",
+                "earned": True,
+                "i18n_params": {},
+            }
+        )
     if total_quizzes >= 10:
-        earned_badges.append({"name": "Quiz Master", "icon": "🏆", "description": f"{total_quizzes} quizzes completed", "earned": True})
+        earned_badges.append(
+            {
+                "badge_id": "quiz_master",
+                "name": "Quiz Master",
+                "icon": "🏆",
+                "description": f"{total_quizzes} quizzes completed",
+                "earned": True,
+                "i18n_params": {"count": total_quizzes},
+            }
+        )
     if total_points >= 1000:
-        earned_badges.append({"name": "Point Collector", "icon": "⭐", "description": f"{total_points} points earned", "earned": True})
+        earned_badges.append(
+            {
+                "badge_id": "point_collector",
+                "name": "Point Collector",
+                "icon": "⭐",
+                "description": f"{total_points} points earned",
+                "earned": True,
+                "i18n_params": {"count": total_points},
+            }
+        )
     if high_accuracy_count >= 5:
-        earned_badges.append({"name": "Perfectionist", "icon": "✨", "description": f"{high_accuracy_count} perfect scores", "earned": True})
-    
+        earned_badges.append(
+            {
+                "badge_id": "perfectionist",
+                "name": "Perfectionist",
+                "icon": "✨",
+                "description": f"{high_accuracy_count} perfect scores",
+                "earned": True,
+                "i18n_params": {"count": high_accuracy_count},
+            }
+        )
+
     available_badges = []
     if streak < 3:
-        available_badges.append({"name": "Consistency", "icon": "🔥", "description": "Maintain a 3-day streak", "earned": False, "progress": streak, "target": 3})
+        available_badges.append(
+            {
+                "badge_id": "consistency",
+                "name": "Consistency",
+                "icon": "🔥",
+                "description": "Maintain a 3-day streak",
+                "earned": False,
+                "progress": streak,
+                "target": 3,
+            }
+        )
     if total_quizzes < 5:
-        available_badges.append({"name": "Quick Learner", "icon": "⚡", "description": "Complete 5 quizzes", "earned": False, "progress": total_quizzes, "target": 5})
+        available_badges.append(
+            {
+                "badge_id": "quick_learner",
+                "name": "Quick Learner",
+                "icon": "⚡",
+                "description": "Complete 5 quizzes",
+                "earned": False,
+                "progress": total_quizzes,
+                "target": 5,
+            }
+        )
     if streak < 7:
-        available_badges.append({"name": "Week Warrior", "icon": "💪", "description": "Maintain a 7-day streak", "earned": False, "progress": streak, "target": 7})
+        available_badges.append(
+            {
+                "badge_id": "week_warrior",
+                "name": "Week Warrior",
+                "icon": "💪",
+                "description": "Maintain a 7-day streak",
+                "earned": False,
+                "progress": streak,
+                "target": 7,
+            }
+        )
     if total_quizzes < 10:
-        available_badges.append({"name": "Quiz Master", "icon": "🏆", "description": "Complete 10 quizzes", "earned": False, "progress": total_quizzes, "target": 10})
+        available_badges.append(
+            {
+                "badge_id": "quiz_master",
+                "name": "Quiz Master",
+                "icon": "🏆",
+                "description": "Complete 10 quizzes",
+                "earned": False,
+                "progress": total_quizzes,
+                "target": 10,
+            }
+        )
     if total_points < 1000:
-        available_badges.append({"name": "Point Collector", "icon": "⭐", "description": "Earn 1000 points", "earned": False, "progress": total_points, "target": 1000})
+        available_badges.append(
+            {
+                "badge_id": "point_collector",
+                "name": "Point Collector",
+                "icon": "⭐",
+                "description": "Earn 1000 points",
+                "earned": False,
+                "progress": total_points,
+                "target": 1000,
+            }
+        )
     if high_accuracy_count < 5:
-        available_badges.append({"name": "Perfectionist", "icon": "✨", "description": "Get 5 perfect scores", "earned": False, "progress": high_accuracy_count, "target": 5})
+        available_badges.append(
+            {
+                "badge_id": "perfectionist",
+                "name": "Perfectionist",
+                "icon": "✨",
+                "description": "Get 5 perfect scores",
+                "earned": False,
+                "progress": high_accuracy_count,
+                "target": 5,
+            }
+        )
     
     return {"earned_badges": earned_badges, "available_badges": available_badges}
 
@@ -2815,15 +2968,25 @@ def get_streaks(
     
     badges = []
     if streak >= 3:
-        badges.append({"name": "Consistency", "icon": "🔥"})
+        badges.append({"badge_id": "consistency", "name": "Consistency", "icon": "🔥"})
     if total_quizzes >= 5:
-        badges.append({"name": "Quick Learner", "icon": "⚡"})
-    
+        badges.append({"badge_id": "quick_learner", "name": "Quick Learner", "icon": "⚡"})
+
     next_badge = None
     if total_quizzes < 5:
-        next_badge = {"name": "Quiz Master", "progress": total_quizzes, "target": 5}
+        next_badge = {
+            "badge_id": "quick_learner",
+            "name": "Quick Learner",
+            "progress": total_quizzes,
+            "target": 5,
+        }
     elif streak < 7:
-        next_badge = {"name": "Week Warrior", "progress": streak, "target": 7}
+        next_badge = {
+            "badge_id": "week_warrior",
+            "name": "Week Warrior",
+            "progress": streak,
+            "target": 7,
+        }
     
     return {
         "streak": streak,

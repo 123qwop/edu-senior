@@ -70,8 +70,14 @@ def get_next_recommended_study_set(user_id: int, db: Session) -> Optional[Dict[s
                 "studySetId": recommended.set_id,
                 "title": recommended.title,
                 "topic": recommended.subject or "General",
+                "topicIsSubject": True,
                 "difficulty": recommended.level or "Medium",
                 "reason": f"You scored {most_recent_accuracy:.0f}% on {most_recent_set.title}. Practice more at the same level to improve.",
+                "reasonKey": "recommendations.reasonLowScoreOtherSet",
+                "reasonParams": {
+                    "accuracy": int(round(most_recent_accuracy)),
+                    "setTitle": most_recent_set.title,
+                },
             }
         
         # If no other set found, recommend the same set again
@@ -79,8 +85,11 @@ def get_next_recommended_study_set(user_id: int, db: Session) -> Optional[Dict[s
             "studySetId": most_recent_set.set_id,
             "title": most_recent_set.title,
             "topic": most_recent_set.subject or "General",
+            "topicIsSubject": True,
             "difficulty": most_recent_set.level or "Medium",
             "reason": f"You scored {most_recent_accuracy:.0f}% on this set. Try again to improve your score!",
+            "reasonKey": "recommendations.reasonLowScoreSameSet",
+            "reasonParams": {"accuracy": int(round(most_recent_accuracy))},
         }
     
     # Rule 2: If accuracy >= 60%, recommend next higher difficulty in same topic
@@ -127,8 +136,14 @@ def get_next_recommended_study_set(user_id: int, db: Session) -> Optional[Dict[s
                     "studySetId": recommended.set_id,
                     "title": recommended.title,
                     "topic": recommended.subject or "General",
+                    "topicIsSubject": True,
                     "difficulty": recommended.level or "Medium",
                     "reason": f"Great job! You scored {most_recent_accuracy:.0f}% on {most_recent_set.title}. Ready for the next level?",
+                    "reasonKey": "recommendations.reasonHighScoreNextLevel",
+                    "reasonParams": {
+                        "accuracy": int(round(most_recent_accuracy)),
+                        "setTitle": most_recent_set.title,
+                    },
                 }
         
         # If no higher difficulty found, recommend another set in same topic at same or similar level
@@ -157,8 +172,14 @@ def get_next_recommended_study_set(user_id: int, db: Session) -> Optional[Dict[s
                 "studySetId": recommended.set_id,
                 "title": recommended.title,
                 "topic": recommended.subject or "General",
+                "topicIsSubject": True,
                 "difficulty": recommended.level or "Medium",
                 "reason": f"You did well on {most_recent_set.title}! Try another set in {most_recent_topic}.",
+                "reasonKey": "recommendations.reasonHighScoreOtherSet",
+                "reasonParams": {
+                    "setTitle": most_recent_set.title,
+                    "topicRaw": most_recent_topic or "General",
+                },
             }
     
     # Fallback: return default beginner set
@@ -198,8 +219,11 @@ def get_default_beginner_set(user_id: int, db: Session) -> Optional[Dict[str, An
             "studySetId": beginner_set.set_id,
             "title": beginner_set.title,
             "topic": beginner_set.subject or "General",
+            "topicIsSubject": True,
             "difficulty": beginner_set.level or "Beginner",
             "reason": "Start your learning journey with this beginner-friendly set!",
+            "reasonKey": "recommendations.reasonBeginnerJourney",
+            "reasonParams": {},
         }
     
     # If no beginner set, just get any set they haven't completed
@@ -225,8 +249,11 @@ def get_default_beginner_set(user_id: int, db: Session) -> Optional[Dict[str, An
             "studySetId": any_set.set_id,
             "title": any_set.title,
             "topic": any_set.subject or "General",
+            "topicIsSubject": True,
             "difficulty": any_set.level or "Medium",
             "reason": "Try this study set to get started!",
+            "reasonKey": "recommendations.reasonTryGetStarted",
+            "reasonParams": {},
         }
     
     return None

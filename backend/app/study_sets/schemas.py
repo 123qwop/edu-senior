@@ -153,12 +153,14 @@ class LeaderboardResponse(BaseModel):
 class Badge(BaseModel):
     name: str
     icon: str
+    badge_id: Optional[str] = None
 
 
 class NextBadge(BaseModel):
     name: str
     progress: int
     target: int
+    badge_id: Optional[str] = None
 
 
 class StreaksResponse(BaseModel):
