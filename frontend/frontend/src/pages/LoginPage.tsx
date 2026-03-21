@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Alert,
@@ -29,6 +30,7 @@ const GOOGLE_OAUTH_URL = 'http://localhost:8000/auth/google/start?flow=login';
 const GITHUB_OAUTH_URL = 'http://localhost:8000/auth/github/start?flow=login';
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [oauthErrorShown, setOauthErrorShown] = useState(false);
@@ -40,12 +42,12 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const handleLogin = async () => {
     if (!email.trim()) {
-      alert('Please enter your email address');
+      alert(t('auth.login.alertEmail'));
       return;
     }
 
     if (!password) {
-      alert('Please enter your password');
+      alert(t('auth.login.alertPassword'));
       return;
     }
 
@@ -55,7 +57,8 @@ export default function LoginPage() {
       navigate('/dashboard');
     } catch (err: unknown) {
       console.error(err);
-      const errorMessage = err instanceof Error ? err.message : 'Login failed. Please check your credentials.';
+      const errorMessage =
+        err instanceof Error ? err.message : t('auth.login.loginFailed');
       alert(errorMessage);
     } finally {
       setLoading(false);
@@ -108,21 +111,21 @@ export default function LoginPage() {
           >
             <Box component="img" src={logo} alt="Nova Edu logo" sx={{ width: 40, height: 40 }} />
             <Typography variant="h4" sx={{ fontWeight: 600, color: 'neutral.700' }}>
-              Login to Access AED
+              {t('auth.login.title')}
             </Typography>
             {oauthErrorShown && (
               <Alert severity="error" onClose={() => setOauthErrorShown(false)}>
-                Sign in with Google or GitHub failed. Please try again or use email and password.
+                {t('auth.login.oauthFailed')}
               </Alert>
             )}
             {noAccountShown && (
               <Alert severity="info" onClose={() => setNoAccountShown(false)}>
-                No account found with this Google or GitHub account. Please sign up first.
+                {t('auth.login.noOAuthAccount')}
               </Alert>
             )}
             <Stack spacing={3}>
               <TextField
-                label="Email Address"
+                label={t('auth.login.email')}
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -130,7 +133,7 @@ export default function LoginPage() {
                 InputLabelProps={{ sx: { color: 'neutral.500' } }}
               />
               <TextField
-                label="Password"
+                label={t('auth.login.password')}
                 type={showPassword ? 'text' : 'password'}
                 fullWidth
                 value={password}
@@ -154,7 +157,7 @@ export default function LoginPage() {
                     sx={{ color: 'neutral.500' }}
                   />
                 }
-                label="Remember me"
+                label={t('auth.login.rememberMe')}
                 sx={{ color: 'neutral.500' }}
               />
               <Button
@@ -164,11 +167,11 @@ export default function LoginPage() {
                 onClick={handleLogin}
                 sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.300' } }}
               >
-                {loading ? 'Logging in...' : 'Login'}
+                {loading ? t('auth.login.loggingIn') : t('auth.login.login')}
               </Button>
               <Stack spacing={1}>
                 <Typography variant="body2" sx={{ color: 'neutral.500', textAlign: 'center' }}>
-                  or Login with
+                  {t('auth.login.orLoginWith')}
                 </Typography>
                 <Stack
                   direction={{ xs: 'column', sm: 'row' }}
@@ -220,7 +223,7 @@ export default function LoginPage() {
                   </Box>
                 </Stack>
                 <Typography variant="caption" sx={{ color: 'neutral.500', textAlign: 'center' }}>
-                  Or open:{' '}
+                  {t('auth.login.orOpen')}{' '}
                   <Link component="a" href={GOOGLE_OAUTH_URL} target="_self" sx={{ fontWeight: 600 }}>
                     Google
                   </Link>
@@ -231,13 +234,13 @@ export default function LoginPage() {
                 </Typography>
               </Stack>
               <Typography variant="body2" sx={{ color: 'neutral.500', textAlign: 'center' }}>
-                Don&apos;t have an account?{' '}
+                {t('auth.login.noAccount')}{' '}
                 <Link
                   component={RouterLink}
                   to="/signup"
                   sx={{ color: 'primary.main', fontWeight: 600 }}
                 >
-                  Sign up
+                  {t('auth.login.signUp')}
                 </Link>
               </Typography>
               <Typography variant="body2" sx={{ color: 'neutral.500', textAlign: 'center' }}>
@@ -246,7 +249,7 @@ export default function LoginPage() {
                   to="/pwdreset"
                   sx={{ color: 'primary.main', fontWeight: 600 }}
                 >
-                  Forgot password?
+                  {t('auth.login.forgotPassword')}
                 </Link>
               </Typography>
             </Stack>

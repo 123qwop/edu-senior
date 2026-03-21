@@ -1,41 +1,40 @@
 import { Link as RouterLink, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { Box, Divider, List, ListItemButton, ListItemText, Paper } from '@mui/material'
 import LogoutIcon from '@mui/icons-material/Logout'
 import HomeIcon from '@mui/icons-material/Home'
 import MenuBookIcon from '@mui/icons-material/MenuBook'
 import DownloadIcon from '@mui/icons-material/Download'
 import AnalyticsIcon from '@mui/icons-material/Analytics'
-import BarChartIcon from '@mui/icons-material/BarChart'
 import LightbulbIcon from '@mui/icons-material/Lightbulb'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import SettingsIcon from '@mui/icons-material/Settings'
 import ClassIcon from '@mui/icons-material/Class'
-import PeopleIcon from '@mui/icons-material/People'
 import { getUserRole, API_URL } from '../api/authApi'
 
-// Student navigation items
+// Student navigation items (keys map to src/locales/*.json under "nav")
 const studentNavigationItems = [
-  { label: 'Home', path: '/dashboard', icon: HomeIcon },
-  { label: 'Study sets', path: '/dashboard/study-sets', icon: MenuBookIcon },
-  { label: 'My classes', path: '/dashboard/subjects', icon: ClassIcon },
-  { label: 'Offline Downloads', path: '/dashboard/downloads', icon: DownloadIcon },
-  { label: 'Progress', path: '/dashboard/progress', icon: AnalyticsIcon },
-  { label: 'AI Recommendations', path: '/dashboard/ai-recommendations', icon: LightbulbIcon },
-  { label: 'Gamification', path: '/dashboard/gamification', icon: EmojiEventsIcon },
-  { label: 'Settings', path: '/dashboard/settings', icon: SettingsIcon },
-]
+  { labelKey: 'nav.home', path: '/dashboard', icon: HomeIcon },
+  { labelKey: 'nav.studySets', path: '/dashboard/study-sets', icon: MenuBookIcon },
+  { labelKey: 'nav.myClasses', path: '/dashboard/subjects', icon: ClassIcon },
+  { labelKey: 'nav.offlineDownloads', path: '/dashboard/downloads', icon: DownloadIcon },
+  { labelKey: 'nav.progress', path: '/dashboard/progress', icon: AnalyticsIcon },
+  { labelKey: 'nav.aiRecommendations', path: '/dashboard/ai-recommendations', icon: LightbulbIcon },
+  { labelKey: 'nav.gamification', path: '/dashboard/gamification', icon: EmojiEventsIcon },
+  { labelKey: 'nav.settings', path: '/dashboard/settings', icon: SettingsIcon },
+] as const
 
-// Teacher navigation items
 const teacherNavigationItems = [
-  { label: 'Home', path: '/dashboard', icon: HomeIcon },
-  { label: 'My Classes', path: '/dashboard/subjects', icon: ClassIcon },
-  { label: 'Study Materials', path: '/dashboard/study-sets', icon: MenuBookIcon },
-  { label: 'Student Progress', path: '/dashboard/analytics', icon: AnalyticsIcon },
-  { label: 'AI Recommendations', path: '/dashboard/ai-recommendations', icon: LightbulbIcon },
-  { label: 'Settings', path: '/dashboard/settings', icon: SettingsIcon },
-]
+  { labelKey: 'nav.home', path: '/dashboard', icon: HomeIcon },
+  { labelKey: 'nav.myClassesTeacher', path: '/dashboard/subjects', icon: ClassIcon },
+  { labelKey: 'nav.studyMaterials', path: '/dashboard/study-sets', icon: MenuBookIcon },
+  { labelKey: 'nav.studentProgress', path: '/dashboard/analytics', icon: AnalyticsIcon },
+  { labelKey: 'nav.aiRecommendations', path: '/dashboard/ai-recommendations', icon: LightbulbIcon },
+  { labelKey: 'nav.settings', path: '/dashboard/settings', icon: SettingsIcon },
+] as const
 
 export default function Sidebar() {
+  const { t } = useTranslation()
   const location = useLocation()
   const userRole = getUserRole()
   const navigationItems = userRole === 'teacher' ? teacherNavigationItems : studentNavigationItems
@@ -82,7 +81,7 @@ export default function Sidebar() {
               >
                 <Icon sx={{ mr: 2, fontSize: 20 }} />
                 <ListItemText
-                  primary={item.label}
+                  primary={t(item.labelKey)}
                   primaryTypographyProps={{
                     fontSize: '0.9375rem',
                     fontWeight: isActive ? 600 : 400,
@@ -107,7 +106,7 @@ export default function Sidebar() {
           >
             <LogoutIcon sx={{ mr: 2, fontSize: 20 }} />
             <ListItemText
-              primary="Sign out"
+              primary={t('nav.signOut')}
               primaryTypographyProps={{
                 fontSize: '0.9375rem',
                 fontWeight: 400,

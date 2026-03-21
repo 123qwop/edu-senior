@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box,
   Typography,
@@ -19,6 +20,7 @@ import { getAllDownloadedStudySets, removeDownloadedStudySet } from '../utils/of
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
 
 export default function Downloads() {
+  const { t } = useTranslation()
   const [downloadedSets, setDownloadedSets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -48,14 +50,14 @@ export default function Downloads() {
       setDownloadedSets(enrichedData)
     } catch (err) {
       console.error('Failed to load downloaded sets:', err)
-      setError('Failed to load downloaded study sets')
+      setError(t('downloads.loadFailed'))
     } finally {
       setLoading(false)
     }
   }
 
   const handleRemove = async (setId: number) => {
-    if (!window.confirm('Are you sure you want to remove this download? You will need to download it again to use it offline.')) {
+    if (!window.confirm(t('downloads.confirmRemove'))) {
       return
     }
     try {
@@ -82,13 +84,13 @@ export default function Downloads() {
   return (
     <Box sx={{ py: 4, flexGrow: 1 }}>
       <Typography variant="h4" sx={{ fontWeight: 700, color: 'neutral.700', mb: 2 }}>
-        Offline Downloads
+        {t('downloads.title')}
       </Typography>
 
       {!isOnline && (
         <Paper elevation={0} sx={{ p: 2, mb: 3, bgcolor: 'warning.50', border: '1px solid', borderColor: 'warning.main', borderRadius: 2 }}>
           <Typography variant="body2" sx={{ color: 'warning.main', fontWeight: 600 }}>
-            ⚠️ You are currently offline. Only downloaded study sets are available.
+            {t('downloads.offlineBanner')}
           </Typography>
         </Paper>
       )}
@@ -104,10 +106,10 @@ export default function Downloads() {
       {downloadedSets.length === 0 ? (
         <Paper elevation={0} sx={{ p: 4, textAlign: 'center', bgcolor: 'neutral.50', borderRadius: 2 }}>
           <Typography variant="h6" sx={{ color: 'neutral.600', mb: 1 }}>
-            No offline downloads yet
+            {t('downloads.emptyTitle')}
           </Typography>
           <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-            Download study sets from the Study Sets page to use them offline.
+            {t('downloads.emptyHint')}
           </Typography>
         </Paper>
       ) : (
@@ -155,14 +157,14 @@ export default function Downloads() {
                         />
                       )}
                       <Chip
-                        label="Downloaded"
+                        label={t('downloads.downloaded')}
                         size="small"
                         sx={{ bgcolor: 'success.50', color: 'success.main', fontSize: '0.75rem' }}
                       />
                     </Stack>
 
                     <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                      {set.item_count} {set.item_count === 1 ? 'item' : 'items'}
+                      {set.item_count} {set.item_count === 1 ? t('common.item') : t('common.items')}
                     </Typography>
 
                     <Stack direction="row" spacing={1} sx={{ mt: 'auto', pt: 2 }}>
@@ -173,7 +175,7 @@ export default function Downloads() {
                           color: 'white',
                           '&:hover': { bgcolor: 'primary.dark' },
                         }}
-                        title="Study"
+                        title={t('downloads.study')}
                       >
                         <PlayArrowIcon />
                       </IconButton>
@@ -184,7 +186,7 @@ export default function Downloads() {
                           color: 'error.main',
                           '&:hover': { bgcolor: 'error.100' },
                         }}
-                        title="Remove download"
+                        title={t('downloads.removeDownload')}
                       >
                         <DeleteIcon />
                       </IconButton>

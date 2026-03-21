@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { formatShortLocaleDate } from '../utils/localeDate'
 import {
   Box,
   Typography,
@@ -29,6 +31,7 @@ import { getAnalytics, getStudySets, type AnalyticsResponse, type StudySetOut } 
 import { getUserRole } from '../api/authApi'
 
 export default function Analytics() {
+  const { t, i18n } = useTranslation()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const [analytics, setAnalytics] = useState<AnalyticsResponse | null>(null)
@@ -49,15 +52,8 @@ export default function Analytics() {
     setExpandedSets(newExpanded)
   }
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Never'
-    try {
-      const date = new Date(dateString)
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    } catch {
-      return 'Never'
-    }
-  }
+  const formatDate = (dateString: string | null) =>
+    formatShortLocaleDate(dateString, i18n.language, t('common.never'))
 
   useEffect(() => {
     if (userRole !== 'teacher') {
@@ -88,7 +84,7 @@ export default function Analytics() {
       setAnalytics(analyticsData)
       setStudySets(setsData.filter(set => set.creator_id === (setsData[0]?.creator_id || null)))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load analytics')
+      setError(err instanceof Error ? err.message : t('analytics.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -101,7 +97,7 @@ export default function Analytics() {
   return (
     <Box sx={{ py: 4, px: 4, flexGrow: 1, maxWidth: '1400px' }}>
       <Typography variant="h4" sx={{ fontWeight: 700, color: 'neutral.700', mb: 3 }}>
-        Analytics
+        {t('analytics.title')}
       </Typography>
 
       {loading ? (
@@ -117,7 +113,7 @@ export default function Analytics() {
               <Card elevation={0} sx={{ bgcolor: 'primary.main', color: 'white' }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ mb: 1, opacity: 0.9 }}>
-                    Total Students
+                    {t('analytics.totalStudents')}
                   </Typography>
                   <Typography variant="h3" sx={{ fontWeight: 700 }}>
                     {analytics.total_students}
@@ -129,7 +125,7 @@ export default function Analytics() {
               <Card elevation={0} sx={{ bgcolor: 'success.main', color: 'white' }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ mb: 1, opacity: 0.9 }}>
-                    Average Mastery
+                    {t('analytics.averageMastery')}
                   </Typography>
                   <Typography variant="h3" sx={{ fontWeight: 700 }}>
                     {analytics.average_mastery}%
@@ -141,7 +137,7 @@ export default function Analytics() {
               <Card elevation={0} sx={{ bgcolor: 'secondary.main', color: 'white' }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ mb: 1, opacity: 0.9 }}>
-                    Total Assignments
+                    {t('analytics.totalAssignments')}
                   </Typography>
                   <Typography variant="h3" sx={{ fontWeight: 700 }}>
                     {analytics.total_assignments}
@@ -154,18 +150,18 @@ export default function Analytics() {
           <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'neutral.200' }}>
             <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'neutral.200' }}>
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                Study Set Performance
+                {t('analytics.studySetPerformance')}
               </Typography>
             </Box>
             <TableContainer>
               <Table>
                 <TableHead>
                   <TableRow sx={{ bgcolor: 'neutral.50' }}>
-                    <TableCell sx={{ fontWeight: 600 }}>Study Set</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Students</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Average Mastery</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Completion Rate</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Total Attempts</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('progress.colStudySet')}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('analytics.colStudents')}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('analytics.colAvgMastery')}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('analytics.colCompletionRate')}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('analytics.colTotalAttempts')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -173,7 +169,7 @@ export default function Analytics() {
                     <TableRow>
                       <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
                         <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                          No study sets with analytics data yet
+                          {t('analytics.emptyAnalytics')}
                         </Typography>
                       </TableCell>
                     </TableRow>
@@ -181,8 +177,8 @@ export default function Analytics() {
                     analytics.study_sets.map((set) => {
                       const isExpanded = expandedSets.has(set.set_id)
                       return (
-                        <>
-                          <TableRow key={set.set_id} hover>
+                        <React.Fragment key={set.set_id}>
+                          <TableRow hover>
                             <TableCell>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <IconButton
@@ -235,17 +231,17 @@ export default function Analytics() {
                               <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                                 <Box sx={{ py: 2, bgcolor: 'neutral.50' }}>
                                   <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2, px: 2 }}>
-                                    Student Progress Details
+                                    {t('analytics.studentProgressDetails')}
                                   </Typography>
                                   <Table size="small">
                                     <TableHead>
                                       <TableRow>
-                                        <TableCell sx={{ fontWeight: 600 }}>Student</TableCell>
-                                        <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
-                                        <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                                        <TableCell sx={{ fontWeight: 600 }}>Mastery</TableCell>
-                                        <TableCell sx={{ fontWeight: 600 }}>Progress</TableCell>
-                                        <TableCell sx={{ fontWeight: 600 }}>Last Activity</TableCell>
+                                        <TableCell sx={{ fontWeight: 600 }}>{t('common.studentCol')}</TableCell>
+                                        <TableCell sx={{ fontWeight: 600 }}>{t('common.email')}</TableCell>
+                                        <TableCell sx={{ fontWeight: 600 }}>{t('common.statusCol')}</TableCell>
+                                        <TableCell sx={{ fontWeight: 600 }}>{t('progress.colMastery')}</TableCell>
+                                        <TableCell sx={{ fontWeight: 600 }}>{t('progress.colProgress')}</TableCell>
+                                        <TableCell sx={{ fontWeight: 600 }}>{t('progress.colLastActivity')}</TableCell>
                                       </TableRow>
                                     </TableHead>
                                     <TableBody>
@@ -262,20 +258,20 @@ export default function Analytics() {
                                               {student.is_completed ? (
                                                 <Chip
                                                   icon={<CheckCircleIcon />}
-                                                  label="Completed"
+                                                  label={t('common.statusCompleted')}
                                                   size="small"
                                                   sx={{ bgcolor: 'success.50', color: 'success.main' }}
                                                 />
                                               ) : student.items_completed > 0 ? (
                                                 <Chip
-                                                  label="In Progress"
+                                                  label={t('common.statusInProgress')}
                                                   size="small"
                                                   sx={{ bgcolor: 'warning.50', color: 'warning.main' }}
                                                 />
                                               ) : (
                                                 <Chip
                                                   icon={<CancelIcon />}
-                                                  label="Not Started"
+                                                  label={t('common.statusNotStarted')}
                                                   size="small"
                                                   sx={{ bgcolor: 'neutral.100', color: 'neutral.600' }}
                                                 />
@@ -316,7 +312,7 @@ export default function Analytics() {
                                         <TableRow>
                                           <TableCell colSpan={6} align="center" sx={{ py: 2 }}>
                                             <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                                              No students assigned to this study set
+                                              {t('analytics.noStudentsOnSet')}
                                             </Typography>
                                           </TableCell>
                                         </TableRow>
@@ -327,7 +323,7 @@ export default function Analytics() {
                               </Collapse>
                             </TableCell>
                           </TableRow>
-                        </>
+                        </React.Fragment>
                       )
                     })
                   )}

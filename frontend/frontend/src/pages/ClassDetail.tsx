@@ -1,6 +1,10 @@
-import { Box, Typography, Paper, Tabs, Tab, Chip, CircularProgress, Alert, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText, LinearProgress, Grid, Card, CardContent, Avatar, Stack } from '@mui/material'
+import { Box, Typography, Paper, Tabs, Tab, Chip, CircularProgress, Alert, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, DialogContentText, LinearProgress, Grid, Card, CardContent, Stack } from '@mui/material'
 import { useEffect, useState } from 'react'
 import { useParams, Link as RouterLink } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
+import { translateSubjectOrClassName } from '../utils/recommendationI18n'
+import { formatShortLocaleDate } from '../utils/localeDate'
 import { getClasses, getClassStudents, removeStudentFromClass, getClassAssignments, getClassStudentsProgress, getLeaderboard, type ClassOut, type Student, type Assignment, type StudentProgressDetail, type LeaderboardResponse } from '../api/studySetsApi'
 import { getUserRole } from '../api/authApi'
 import ClassIcon from '@mui/icons-material/Class'
@@ -21,6 +25,19 @@ interface TabPanelProps {
   value: number
 }
 
+function levelMenuLabel(value: string, t: TFunction): string {
+  const keys: Record<string, string> = {
+    'Grade 7': 'classes.levelGrade7',
+    'Grade 8': 'classes.levelGrade8',
+    'Grade 9': 'classes.levelGrade9',
+    'Grade 10': 'classes.levelGrade10',
+    'Grade 11': 'classes.levelGrade11',
+    'Grade 12': 'classes.levelGrade12',
+  }
+  const k = keys[value]
+  return k ? t(k) : value
+}
+
 function TabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props
 
@@ -38,6 +55,7 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export default function ClassDetail() {
+  const { t, i18n } = useTranslation()
   const { classId } = useParams<{ classId: string }>()
   const [currentTab, setCurrentTab] = useState(() => {
     // Check if we're coming from Classes page with tab state
@@ -87,7 +105,7 @@ export default function ClassDetail() {
 
   const fetchClassData = async () => {
     if (!classId) {
-      setError('Class ID is missing')
+      setError(t('common.classIdMissing'))
       setLoading(false)
       return
     }
@@ -100,10 +118,10 @@ export default function ClassDetail() {
       if (found) {
         setClassData(found)
       } else {
-        setError('Class not found')
+        setError(t('common.classNotFound'))
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load class')
+      setError(err instanceof Error ? err.message : t('common.loadClassFailed'))
     } finally {
       setLoading(false)
     }
@@ -172,7 +190,7 @@ export default function ClassDetail() {
             const student = students.find((s) => s.id === p.student_id)
             return {
               rank: 0, // Will be set after sorting
-              name: student?.name || 'Unknown',
+              name: student?.name || t('common.unknown'),
               points: Math.round(p.average_mastery * 10), // Convert mastery to points
             }
           })
@@ -209,7 +227,7 @@ export default function ClassDetail() {
       setStudentToRemove(null)
       fetchStudents() // Refresh the list
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to remove student')
+      alert(err instanceof Error ? err.message : t('common.removeStudentFailed'))
     } finally {
       setRemoving(false)
     }
@@ -231,7 +249,7 @@ export default function ClassDetail() {
   if (error || !classData) {
     return (
       <Box sx={{ py: 4, flexGrow: 1 }}>
-        <Alert severity="error">{error || 'Class not found'}</Alert>
+        <Alert severity="error">{error || t('common.classNotFound')}</Alert>
       </Box>
     )
   }
@@ -254,7 +272,7 @@ export default function ClassDetail() {
           }}
         >
           <ArrowBackIcon sx={{ mr: 1 }} />
-          <Typography variant="body2">Back to Classes</Typography>
+          <Typography variant="body2">{t('common.backToClasses')}</Typography>
         </Box>
       </Box>
 
@@ -269,7 +287,7 @@ export default function ClassDetail() {
             <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
               {classData.subject && (
                 <Chip
-                  label={classData.subject}
+                  label={translateSubjectOrClassName(classData.subject, t)}
                   size="small"
                   sx={{
                     bgcolor: 'primary.50',
@@ -280,7 +298,7 @@ export default function ClassDetail() {
               )}
               {classData.level && (
                 <Chip
-                  label={classData.level}
+                  label={levelMenuLabel(classData.level, t)}
                   size="small"
                   sx={{
                     bgcolor: 'neutral.100',
@@ -309,28 +327,28 @@ export default function ClassDetail() {
           <Tab
             icon={<PeopleIcon />}
             iconPosition="start"
-            label="Students"
+            label={t('common.tabStudents')}
             id="class-tab-0"
             aria-controls="class-tabpanel-0"
           />
           <Tab
             icon={<AssignmentIcon />}
             iconPosition="start"
-            label="Assignments"
+            label={t('common.tabAssignments')}
             id="class-tab-1"
             aria-controls="class-tabpanel-1"
           />
           <Tab
             icon={<EmojiEventsIcon />}
             iconPosition="start"
-            label="Leaderboard"
+            label={t('common.tabLeaderboard')}
             id="class-tab-2"
             aria-controls="class-tabpanel-2"
           />
           <Tab
             icon={<AnalyticsIcon />}
             iconPosition="start"
-            label="Analytics"
+            label={t('common.tabAnalytics')}
             id="class-tab-3"
             aria-controls="class-tabpanel-3"
           />
@@ -343,7 +361,7 @@ export default function ClassDetail() {
           {students.length > 0 && (
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                Students ({students.length})
+                {t('common.studentsCount', { count: students.length })}
               </Typography>
               {isTeacher && (
                 <Button
@@ -352,7 +370,7 @@ export default function ClassDetail() {
                   onClick={() => setAddStudentsDialogOpen(true)}
                   sx={{ bgcolor: 'primary.main' }}
                 >
-                  Add Students
+                  {t('common.addStudents')}
                 </Button>
               )}
             </Box>
@@ -365,7 +383,7 @@ export default function ClassDetail() {
           ) : students.length === 0 ? (
             <Paper sx={{ p: 4, textAlign: 'center', bgcolor: 'neutral.50' }}>
               <Typography variant="body1" sx={{ color: 'neutral.500', mb: 2 }}>
-                No students enrolled yet.
+                {t('common.noStudentsEnrolled')}
               </Typography>
               {isTeacher && (
                 <Button
@@ -373,7 +391,7 @@ export default function ClassDetail() {
                   startIcon={<AddIcon />}
                   onClick={() => setAddStudentsDialogOpen(true)}
                 >
-                  Add Students
+                  {t('common.addStudents')}
                 </Button>
               )}
             </Paper>
@@ -382,16 +400,16 @@ export default function ClassDetail() {
               <Table>
                 <TableHead>
                   <TableRow sx={{ bgcolor: 'neutral.50' }}>
-                    <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Email</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('common.name')}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('common.email')}</TableCell>
                     {isTeacher && (
                       <>
-                        <TableCell sx={{ fontWeight: 600 }}>Assignments</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>Average Mastery</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{t('common.assignmentsCol')}</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{t('common.avgMastery')}</TableCell>
                       </>
                     )}
-                    <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
-                    {isTeacher && <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>}
+                    <TableCell sx={{ fontWeight: 600 }}>{t('common.statusCol')}</TableCell>
+                    {isTeacher && <TableCell sx={{ fontWeight: 600 }}>{t('common.actions')}</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -425,7 +443,7 @@ export default function ClassDetail() {
                                   </Typography>
                                 ) : (
                                   <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                                    {assignments.length > 0 ? `0 / ${assignments.length}` : 'No assignments'}
+                                    {assignments.length > 0 ? `0 / ${assignments.length}` : t('common.noAssignmentsForStudent')}
                                   </Typography>
                                 )}
                               </TableCell>
@@ -452,7 +470,7 @@ export default function ClassDetail() {
                           )}
                           <TableCell>
                             <Chip
-                              label="Enrolled"
+                              label={t('common.enrolled')}
                               size="small"
                               sx={{
                                 bgcolor: 'success.50',
@@ -485,7 +503,7 @@ export default function ClassDetail() {
         <TabPanel value={currentTab} index={1}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              Assignments / Study Sets
+              {t('common.assignmentsStudySets')}
             </Typography>
             {isTeacher && (
               <Button
@@ -494,7 +512,7 @@ export default function ClassDetail() {
                 onClick={() => setAddAssignmentDialogOpen(true)}
                 sx={{ bgcolor: 'primary.main' }}
               >
-                Add Assignment
+                {t('classes.addAssignment')}
               </Button>
             )}
           </Box>
@@ -506,7 +524,7 @@ export default function ClassDetail() {
           ) : assignments.length === 0 ? (
             <Paper sx={{ p: 4, textAlign: 'center', bgcolor: 'neutral.50' }}>
               <Typography variant="body1" sx={{ color: 'neutral.500', mb: 2 }}>
-                No assignments yet. Create an assignment to get started.
+                {t('common.noAssignmentsYetClass')}
               </Typography>
             </Paper>
           ) : (
@@ -514,10 +532,10 @@ export default function ClassDetail() {
               <Table>
                 <TableHead>
                   <TableRow sx={{ bgcolor: 'neutral.50' }}>
-                    <TableCell sx={{ fontWeight: 600 }}>Study Set</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Subject</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Due Date</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('progress.colStudySet')}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('progress.colSubject')}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('studySets.type')}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('common.dueDate')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -535,7 +553,7 @@ export default function ClassDetail() {
                       <TableCell>
                         {assignment.subject && (
                           <Chip
-                            label={assignment.subject}
+                            label={translateSubjectOrClassName(assignment.subject, t)}
                             size="small"
                             sx={{
                               bgcolor: 'primary.50',
@@ -547,8 +565,8 @@ export default function ClassDetail() {
                       <TableCell>{assignment.type}</TableCell>
                       <TableCell>
                         {assignment.due_date
-                          ? new Date(assignment.due_date).toLocaleDateString()
-                          : 'No due date'}
+                          ? formatShortLocaleDate(assignment.due_date, i18n.language, t('common.never'))
+                          : t('common.noDueDate')}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -560,7 +578,7 @@ export default function ClassDetail() {
 
         <TabPanel value={currentTab} index={2}>
           <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
-            Class Leaderboard
+            {t('common.classLeaderboardTitle')}
           </Typography>
 
           {loadingLeaderboard ? (
@@ -570,7 +588,7 @@ export default function ClassDetail() {
           ) : leaderboard.leaderboard.length === 0 ? (
             <Paper sx={{ p: 4, textAlign: 'center', bgcolor: 'neutral.50' }}>
               <Typography variant="body1" sx={{ color: 'neutral.500' }}>
-                No leaderboard data available yet. Students need to complete assignments to appear on the leaderboard.
+                {t('common.leaderboardEmptyClass')}
               </Typography>
             </Paper>
           ) : (
@@ -579,9 +597,11 @@ export default function ClassDetail() {
                 <Table>
                   <TableHead>
                     <TableRow sx={{ bgcolor: 'neutral.50' }}>
-                      <TableCell sx={{ fontWeight: 600, width: 80 }}>Rank</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Student</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }} align="right">Points</TableCell>
+                      <TableCell sx={{ fontWeight: 600, width: 80 }}>{t('common.rank')}</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{t('common.studentCol')}</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }} align="right">
+                        {t('common.pointsCol')}
+                      </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -617,7 +637,7 @@ export default function ClassDetail() {
                         </TableCell>
                         <TableCell align="right">
                           <Chip
-                            label={entry.points}
+                            label={t('common.pointsLabel', { count: entry.points })}
                             size="small"
                             sx={{
                               bgcolor: 'primary.50',
@@ -635,7 +655,10 @@ export default function ClassDetail() {
               {leaderboard.current_user_rank && leaderboard.current_user_rank.rank > 10 && (
                 <Paper elevation={0} sx={{ p: 2, bgcolor: 'primary.50', border: '1px solid', borderColor: 'primary.main' }}>
                   <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 600 }}>
-                    Your rank: #{leaderboard.current_user_rank.rank} ({leaderboard.current_user_rank.points} points)
+                    {t('common.yourRankLine', {
+                      rank: leaderboard.current_user_rank.rank,
+                      points: leaderboard.current_user_rank.points,
+                    })}
                   </Typography>
                 </Paper>
               )}
@@ -645,7 +668,7 @@ export default function ClassDetail() {
 
         <TabPanel value={currentTab} index={3}>
           <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
-            Class Analytics
+            {t('common.classAnalyticsTitle')}
           </Typography>
 
           {loadingProgress ? (
@@ -655,7 +678,7 @@ export default function ClassDetail() {
           ) : studentProgress.length === 0 ? (
             <Paper sx={{ p: 4, textAlign: 'center', bgcolor: 'neutral.50' }}>
               <Typography variant="body1" sx={{ color: 'neutral.500' }}>
-                No analytics data available yet. Students need to complete assignments to see analytics.
+                {t('common.analyticsEmptyClass')}
               </Typography>
             </Paper>
           ) : (
@@ -665,7 +688,7 @@ export default function ClassDetail() {
                   <Card elevation={0} sx={{ bgcolor: 'primary.main', color: 'white' }}>
                     <CardContent>
                       <Typography variant="h6" sx={{ mb: 1, opacity: 0.9 }}>
-                        Total Students
+                        {t('analytics.totalStudents')}
                       </Typography>
                       <Typography variant="h3" sx={{ fontWeight: 700 }}>
                         {students.length}
@@ -677,7 +700,7 @@ export default function ClassDetail() {
                   <Card elevation={0} sx={{ bgcolor: 'success.main', color: 'white' }}>
                     <CardContent>
                       <Typography variant="h6" sx={{ mb: 1, opacity: 0.9 }}>
-                        Average Mastery
+                        {t('analytics.averageMastery')}
                       </Typography>
                       <Typography variant="h3" sx={{ fontWeight: 700 }}>
                         {studentProgress.length > 0
@@ -693,7 +716,7 @@ export default function ClassDetail() {
                   <Card elevation={0} sx={{ bgcolor: 'secondary.main', color: 'white' }}>
                     <CardContent>
                       <Typography variant="h6" sx={{ mb: 1, opacity: 0.9 }}>
-                        Total Assignments
+                        {t('analytics.totalAssignments')}
                       </Typography>
                       <Typography variant="h3" sx={{ fontWeight: 700 }}>
                         {assignments.length}
@@ -706,17 +729,17 @@ export default function ClassDetail() {
               <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'neutral.200' }}>
                 <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'neutral.200' }}>
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    Student Performance Overview
+                    {t('common.studentPerformanceOverview')}
                   </Typography>
                 </Box>
                 <TableContainer>
                   <Table>
                     <TableHead>
                       <TableRow sx={{ bgcolor: 'neutral.50' }}>
-                        <TableCell sx={{ fontWeight: 600 }}>Student</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>Assignments Completed</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>Average Mastery</TableCell>
-                        <TableCell sx={{ fontWeight: 600 }}>Progress</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{t('common.studentCol')}</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{t('common.assignmentsCompleted')}</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{t('common.avgMastery')}</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{t('progress.colProgress')}</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -726,7 +749,7 @@ export default function ClassDetail() {
                           <TableRow key={progress.student_id} hover>
                             <TableCell>
                               <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                                {student?.name || 'Unknown'}
+                                {student?.name || t('common.unknown')}
                               </Typography>
                               <Typography variant="body2" sx={{ color: 'neutral.500' }}>
                                 {student?.email || ''}
@@ -777,7 +800,7 @@ export default function ClassDetail() {
                                 </Box>
                               ) : (
                                 <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                                  No assignments
+                                  {t('common.noAssignmentsProgress')}
                                 </Typography>
                               )}
                             </TableCell>
@@ -819,16 +842,15 @@ export default function ClassDetail() {
 
       {/* Remove Student Confirmation Dialog */}
       <Dialog open={removeDialogOpen} onClose={handleRemoveCancel}>
-        <DialogTitle>Remove Student</DialogTitle>
+        <DialogTitle>{t('common.removeStudent')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to remove <strong>{studentToRemove?.name}</strong> from this class? 
-            This action cannot be undone.
+            {t('common.removeStudentConfirm', { name: studentToRemove?.name ?? '' })}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleRemoveCancel} disabled={removing}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleRemoveConfirm}
@@ -836,7 +858,7 @@ export default function ClassDetail() {
             color="error"
             disabled={removing}
           >
-            {removing ? 'Removing...' : 'Remove'}
+            {removing ? t('common.removing') : t('common.remove')}
           </Button>
         </DialogActions>
       </Dialog>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   Box,
@@ -28,6 +29,7 @@ import { getStudySet, getStudySetQuestions, recordProgress, type Question } from
 import { getUserRole, getMe } from '../api/authApi'
 
 export default function Practice() {
+  const { t } = useTranslation()
   const { setId } = useParams<{ setId: string }>()
   const navigate = useNavigate()
   const [studySet, setStudySet] = useState<any>(null)
@@ -74,7 +76,7 @@ export default function Practice() {
       setStudySet(setData)
       setQuestions(questionsData)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load study set')
+      setError(err instanceof Error ? err.message : t('practice.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -104,7 +106,7 @@ export default function Practice() {
       setResults(result)
       setShowResults(true)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to submit answers')
+      alert(err instanceof Error ? err.message : t('practice.submitFailed'))
     }
   }
 
@@ -119,13 +121,13 @@ export default function Practice() {
         <Card sx={{ minHeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => handleFlipFlashcard(question.id)}>
           <CardContent sx={{ textAlign: 'center', width: '100%' }}>
             <Typography variant="h5" sx={{ mb: 2, fontWeight: 600 }}>
-              {isFlipped ? 'Definition' : 'Term'}
+              {isFlipped ? t('practice.definition') : t('practice.term')}
             </Typography>
             <Typography variant="h4" sx={{ color: 'primary.main', fontWeight: 700 }}>
               {isFlipped ? question.definition : question.term}
             </Typography>
             <Typography variant="body2" sx={{ mt: 3, color: 'neutral.500' }}>
-              Click to flip
+              {t('practice.clickToFlip')}
             </Typography>
           </CardContent>
         </Card>
@@ -169,13 +171,13 @@ export default function Practice() {
             <FormControlLabel
               value="true"
               control={<Radio />}
-              label="True"
+              label={t('practice.true')}
               sx={{ mb: 1, p: 1.5, border: '1px solid', borderColor: 'neutral.200', borderRadius: 2 }}
             />
             <FormControlLabel
               value="false"
               control={<Radio />}
-              label="False"
+              label={t('practice.false')}
               sx={{ mb: 1, p: 1.5, border: '1px solid', borderColor: 'neutral.200', borderRadius: 2 }}
             />
           </RadioGroup>
@@ -195,7 +197,7 @@ export default function Practice() {
             rows={4}
             value={answers[question.id] || ''}
             onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-            placeholder="Type your answer here..."
+            placeholder={t('practice.placeholderShort')}
             variant="outlined"
           />
         </Box>
@@ -214,7 +216,7 @@ export default function Practice() {
             rows={6}
             value={answers[question.id] || ''}
             onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-            placeholder="Show your work and solution..."
+            placeholder={t('practice.placeholderProblem')}
             variant="outlined"
           />
         </Box>
@@ -227,7 +229,7 @@ export default function Practice() {
   if (loading) {
     return (
       <Box sx={{ py: 4, textAlign: 'center' }}>
-        <Typography>Loading...</Typography>
+        <Typography>{t('common.loading')}</Typography>
       </Box>
     )
   }
@@ -236,14 +238,14 @@ export default function Practice() {
     return (
       <Box sx={{ py: 4 }}>
         <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/dashboard/study-sets')} sx={{ mb: 2 }}>
-          Back to Study Sets
+          {t('practice.backToSets')}
         </Button>
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="h6" sx={{ mb: 1 }}>
-            {error || 'Study set not found'}
+            {error || t('practice.notFound')}
           </Typography>
           <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-            This study set doesn't exist or you don't have access to it.
+            {t('practice.noAccess')}
           </Typography>
         </Paper>
       </Box>
@@ -254,21 +256,21 @@ export default function Practice() {
     return (
       <Box sx={{ py: 4 }}>
         <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/dashboard/study-sets')} sx={{ mb: 2 }}>
-          Back to Study Sets
+          {t('practice.backToSets')}
         </Button>
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="h6" sx={{ mb: 1 }}>
-            No content yet
+            {t('practice.noContentTitle')}
           </Typography>
           <Typography variant="body2" sx={{ color: 'neutral.500', mb: 3 }}>
-            This study set doesn't have any questions or flashcards yet.
+            {t('practice.noContentBody')}
           </Typography>
           {userId && studySet.creator_id === userId && (
             <Button
               variant="outlined"
               onClick={() => navigate(`/dashboard/study-sets`)}
             >
-              Edit study set to add content
+              {t('practice.editToAddContent')}
             </Button>
           )}
         </Paper>
@@ -282,7 +284,7 @@ export default function Practice() {
   return (
     <Box sx={{ py: 4 }}>
       <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/dashboard/study-sets')} sx={{ mb: 3 }}>
-        Back to Study Sets
+        {t('practice.backToSets')}
       </Button>
 
       <Paper elevation={0} sx={{ p: 3, mb: 3 }}>
@@ -297,7 +299,7 @@ export default function Practice() {
             </Stack>
           </Box>
           <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-            Question {currentQuestionIndex + 1} of {questions.length}
+            {t('practice.questionOf', { current: currentQuestionIndex + 1, total: questions.length })}
           </Typography>
         </Stack>
         <LinearProgress variant="determinate" value={progress} sx={{ height: 8, borderRadius: 4 }} />
@@ -313,7 +315,7 @@ export default function Practice() {
           onClick={handlePrevious}
           disabled={currentQuestionIndex === 0}
         >
-          Previous
+          {t('practice.previous')}
         </Button>
         <Button
           variant="contained"
@@ -321,19 +323,19 @@ export default function Practice() {
           disabled={currentQuestion.type !== 'flashcard' && (answers[currentQuestion.id] === undefined || answers[currentQuestion.id] === '')}
           sx={{ bgcolor: 'primary.main' }}
         >
-          {currentQuestionIndex === questions.length - 1 ? 'Submit' : 'Next'}
+          {currentQuestionIndex === questions.length - 1 ? t('practice.submit') : t('practice.next')}
         </Button>
       </Stack>
 
       <Dialog open={showResults} maxWidth="sm" fullWidth>
-        <DialogTitle>Results</DialogTitle>
+        <DialogTitle>{t('practice.results')}</DialogTitle>
         <DialogContent>
           <Box sx={{ textAlign: 'center', py: 2 }}>
             <Typography variant="h3" sx={{ fontWeight: 700, mb: 2, color: 'primary.main' }}>
               {results?.mastery_percentage.toFixed(0)}%
             </Typography>
             <Typography variant="body1" sx={{ mb: 3 }}>
-              You got {results?.correct_answers} out of {results?.total_questions} questions correct!
+              {t('practice.scoreLine', { correct: results?.correct_answers, total: results?.total_questions })}
             </Typography>
             <LinearProgress
               variant="determinate"
@@ -343,14 +345,14 @@ export default function Practice() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => navigate('/dashboard/study-sets')}>Back to Study Sets</Button>
+          <Button onClick={() => navigate('/dashboard/study-sets')}>{t('practice.backToSets')}</Button>
           <Button variant="contained" onClick={() => {
             setShowResults(false)
             setCurrentQuestionIndex(0)
             setAnswers({})
             setFlashcardFlipped({})
           }}>
-            Try Again
+            {t('practice.tryAgain')}
           </Button>
         </DialogActions>
       </Dialog>

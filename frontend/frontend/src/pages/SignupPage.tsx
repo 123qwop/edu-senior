@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link as RouterLink, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Alert,
@@ -36,6 +37,7 @@ const GOOGLE_OAUTH_URL = `${API_URL}/auth/google/start`;
 const GITHUB_OAUTH_URL = `${API_URL}/auth/github/start`;
 
 export default function SignupPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [accountExistsShown, setAccountExistsShown] = useState(false);
@@ -158,24 +160,24 @@ export default function SignupPage() {
             <Stack direction="row" alignItems="center" spacing={2}>
               <Box component="img" src={logo} alt="Nova Edu logo" sx={{ width: 40, height: 40 }} />
               <Typography variant="h4" sx={{ fontWeight: 600, color: 'neutral.700' }}>
-                Sign Up to Access AED
+                {t('auth.signup.title')}
               </Typography>
             </Stack>
             {accountExistsShown && (
               <Alert severity="info" onClose={() => setAccountExistsShown(false)}>
-                An account with this email already exists. Please log in instead.
+                {t('auth.signup.accountExists')}
               </Alert>
             )}
             <Stack spacing={3}>
               <TextField
-                label="Full Name"
+                label={t('auth.signup.fullName')}
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 fullWidth
                 InputLabelProps={{ sx: { color: 'neutral.500' } }}
               />
               <TextField
-                label="Email Address"
+                label={t('auth.signup.email')}
                 type="email"
                 fullWidth
                 value={email}
@@ -183,7 +185,7 @@ export default function SignupPage() {
                 InputLabelProps={{ sx: { color: 'neutral.500' } }}
               />
               <TextField
-                label="Password"
+                label={t('auth.signup.password')}
                 type={showPassword ? 'text' : 'password'}
                 fullWidth
                 value={password}
@@ -200,7 +202,7 @@ export default function SignupPage() {
                 }}
               />
               <TextField
-                label="Confirm Password"
+                label={t('auth.signup.confirmPassword')}
                 type={showConfirmPassword ? 'text' : 'password'}
                 fullWidth
                 value={confirmPassword}
@@ -224,24 +226,24 @@ export default function SignupPage() {
                 }}
               />
               <FormControl fullWidth>
-                <InputLabel sx={{ color: 'neutral.500' }}>I am a</InputLabel>
+                <InputLabel sx={{ color: 'neutral.500' }}>{t('auth.signup.iAmA')}</InputLabel>
                 <Select
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
-                  label="I am a"
+                  label={t('auth.signup.iAmA')}
                   sx={{ color: 'neutral.700' }}
                 >
-                  <MenuItem value="student">Student</MenuItem>
-                  <MenuItem value="teacher">Teacher</MenuItem>
+                  <MenuItem value="student">{t('auth.signup.student')}</MenuItem>
+                  <MenuItem value="teacher">{t('auth.signup.teacher')}</MenuItem>
                 </Select>
               </FormControl>
               <FormControlLabel
                 control={<Checkbox sx={{ color: 'neutral.500' }} />}
                 label={
                   <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                    Agree to{' '}
+                    {t('auth.signup.agreeTerms')}{' '}
                     <Link href="#" sx={{ color: 'primary.main', fontWeight: 600 }}>
-                      Terms &amp; Privacy Policy
+                      {t('auth.signup.termsLink')}
                     </Link>
                   </Typography>
                 }
@@ -253,10 +255,10 @@ export default function SignupPage() {
                 onClick={handleSignup}
                 disabled={loading}
               >
-                {loading ? 'Creating Account...' : 'Create Account'}
+                {loading ? t('auth.signup.creating') : t('auth.signup.createAccount')}
               </Button>
               <Typography variant="body2" sx={{ color: 'neutral.500', textAlign: 'center' }}>
-                or Sign up with
+                {t('auth.signup.orSignUpWith')}
               </Typography>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="center" alignItems="center">
                 <Button
@@ -286,11 +288,17 @@ export default function SignupPage() {
               </Stack>
               <Dialog open={oauthRoleDialog !== null} onClose={() => setOauthRoleDialog(null)}>
                 <DialogTitle>
-                  Choose your role to sign up with {oauthRoleDialog === 'google' ? 'Google' : 'GitHub'}
+                  {t('auth.signup.dialogTitle', {
+                    provider:
+                      oauthRoleDialog === 'github' ? t('common.github') : t('common.google'),
+                  })}
                 </DialogTitle>
                 <DialogContent>
                   <Typography variant="body2" sx={{ color: 'neutral.600' }}>
-                    Select how you will use the platform. You can then pick your {oauthRoleDialog === 'google' ? 'Google' : 'GitHub'} account to continue.
+                    {t('auth.signup.dialogBody', {
+                      provider:
+                        oauthRoleDialog === 'github' ? t('common.github') : t('common.google'),
+                    })}
                   </Typography>
                 </DialogContent>
                 <DialogActions sx={{ flexDirection: 'column', gap: 1, px: 3, pb: 2 }}>
@@ -300,7 +308,7 @@ export default function SignupPage() {
                     onClick={() => oauthRoleDialog && startOAuthSignup(oauthRoleDialog, 'student')}
                     sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.300' } }}
                   >
-                    Continue as Student
+                    {t('auth.signup.continueAsStudent')}
                   </Button>
                   <Button
                     variant="contained"
@@ -308,21 +316,21 @@ export default function SignupPage() {
                     onClick={() => oauthRoleDialog && startOAuthSignup(oauthRoleDialog, 'teacher')}
                     sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.300' } }}
                   >
-                    Continue as Teacher
+                    {t('auth.signup.continueAsTeacher')}
                   </Button>
                   <Button variant="text" onClick={() => setOauthRoleDialog(null)}>
-                    Cancel
+                    {t('auth.signup.cancel')}
                   </Button>
                 </DialogActions>
               </Dialog>
               <Typography variant="body2" sx={{ color: 'neutral.500', textAlign: 'center' }}>
-                Already have an account?{' '}
+                {t('auth.signup.alreadyHaveAccount')}{' '}
                 <Link
                   component={RouterLink}
                   to="/login"
                   sx={{ color: 'primary.main', fontWeight: 600 }}
                 >
-                  Login
+                  {t('auth.signup.login')}
                 </Link>
               </Typography>
             </Stack>

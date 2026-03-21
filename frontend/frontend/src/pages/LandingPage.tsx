@@ -1,4 +1,5 @@
 import { Fragment } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, Button, Container, Divider, Stack, Typography } from '@mui/material';
 import Grid from '@mui/material/Grid';
@@ -7,28 +8,17 @@ import heroIllustration from '../assets/landing-illustration.png';
 import Header from '../ui/Header';
 import Footer from '../ui/Footer';
 
-const featureItems = [
-  {
-    title: '01 Personalized Learning',
-    description: 'Get personalized suggestions',
-  },
-  {
-    title: '02 Track Progress',
-    description: 'Analytics & Stats',
-  },
-  {
-    title: '03 Gamified Motivation',
-    description: 'Get trophies and be at the top of the leaderboard',
-  },
-];
+const FEATURE_KEYS = [
+  { titleKey: 'landing.feature1Title', descKey: 'landing.feature1Desc' },
+  { titleKey: 'landing.feature2Title', descKey: 'landing.feature2Desc' },
+  { titleKey: 'landing.feature3Title', descKey: 'landing.feature3Desc' },
+] as const;
 
-const steps = [
-  { title: 'Create an account' },
-  { title: 'Practice & review' },
-  { title: 'Improve with AI' },
-];
+const STEP_KEYS = ['landing.step1', 'landing.step2', 'landing.step3'] as const;
 
 export default function LandingPage() {
+  const { t } = useTranslation();
+
   return (
     <Box
       sx={{ bgcolor: 'neutral.50', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}
@@ -38,11 +28,10 @@ export default function LandingPage() {
         <Grid container spacing={{ xs: 6, md: 8 }} alignItems="center">
           <Grid size={{ xs: 12, md: 6 }}>
             <Typography variant="h3" sx={{ fontWeight: 700, color: 'neutral.700', mb: 2 }}>
-              Learn Smarter, Not Longer
+              {t('landing.heroTitle')}
             </Typography>
             <Typography variant="body1" sx={{ color: 'neutral.500', mb: 4 }}>
-              Personalized AI-powered study platform to help students master topics efficiently and
-              stay motivated. With Nova Edu, you can save your time and efforts.
+              {t('landing.heroSubtitle')}
             </Typography>
             <Button
               component={RouterLink}
@@ -57,14 +46,14 @@ export default function LandingPage() {
                 fontSize: '1.125rem',
               }}
             >
-              Get Started
+              {t('landing.getStarted')}
             </Button>
           </Grid>
           <Grid size={{ xs: 12, md: 6 }}>
             <Box
               component="img"
               src={heroIllustration}
-              alt="Student working illustration"
+              alt={t('landing.illustrationAlt')}
               sx={{ width: '100%', maxWidth: 400, mx: 'auto', display: 'block' }}
             />
           </Grid>
@@ -72,11 +61,11 @@ export default function LandingPage() {
 
         <Box sx={{ mt: { xs: 4, md: 6 } }}>
           <Typography variant="h5" sx={{ fontWeight: 600, color: 'neutral.700', mb: 3 }}>
-            Features
+            {t('landing.featuresTitle')}
           </Typography>
           <Grid container spacing={3}>
-            {featureItems.map((item) => (
-              <Grid size={{ xs: 12, md: 4 }} key={item.title}>
+            {FEATURE_KEYS.map((item) => (
+              <Grid size={{ xs: 12, md: 4 }} key={item.titleKey}>
                 <Box
                   sx={{
                     bgcolor: 'primary.50',
@@ -86,10 +75,10 @@ export default function LandingPage() {
                   }}
                 >
                   <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700', mb: 1 }}>
-                    {item.title}
+                    {t(item.titleKey)}
                   </Typography>
                   <Typography variant="body1" sx={{ color: 'neutral.500' }}>
-                    {item.description}
+                    {t(item.descKey)}
                   </Typography>
                 </Box>
               </Grid>
@@ -99,7 +88,7 @@ export default function LandingPage() {
 
         <Box sx={{ mt: { xs: 4, md: 6 } }}>
           <Typography variant="h5" sx={{ fontWeight: 600, color: 'neutral.700', mb: 3 }}>
-            How it works
+            {t('landing.howItWorks')}
           </Typography>
           <Stack
             direction={{ xs: 'column', md: 'row' }}
@@ -108,8 +97,8 @@ export default function LandingPage() {
             justifyContent="center"
             sx={{ flexWrap: { xs: 'wrap', md: 'nowrap' } }}
           >
-            {steps.map((step, index) => (
-              <Fragment key={step.title}>
+            {STEP_KEYS.map((stepKey, index) => (
+              <Fragment key={stepKey}>
                 <Box
                   sx={{
                     bgcolor: 'primary.50',
@@ -137,11 +126,11 @@ export default function LandingPage() {
                       {index + 1}
                     </Typography>
                     <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'neutral.700' }}>
-                      {step.title}
+                      {t(stepKey)}
                     </Typography>
                   </Stack>
                 </Box>
-                {index < steps.length - 1 && (
+                {index < STEP_KEYS.length - 1 && (
                   <Box
                     sx={{
                       display: { xs: 'none', md: 'flex' },

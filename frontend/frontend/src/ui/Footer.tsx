@@ -1,7 +1,9 @@
 import { Box, Container, Link, Stack, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import logo from '../assets/logo.png';
 
 export default function Footer() {
+  const { t } = useTranslation();
   return (
     <Box component="footer" sx={{ bgcolor: 'neutral.50', py: 4 }}>
       <Container maxWidth="lg">
@@ -19,18 +21,18 @@ export default function Footer() {
               sx={{ width: 28, height: 28, borderRadius: 1 }}
             />
             <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-              © 2025 AED Platform
+              {t('footer.copyright')}
             </Typography>
           </Stack>
           <Stack direction="row" spacing={3} sx={{ color: 'neutral.500' }}>
             <Link href="#" underline="hover" sx={{ color: 'neutral.500' }}>
-              Contacts
+              {t('footer.contacts')}
             </Link>
             <Link href="#" underline="hover" sx={{ color: 'neutral.500' }}>
-              Privacy
+              {t('footer.privacy')}
             </Link>
             <Link href="#" underline="hover" sx={{ color: 'neutral.500' }}>
-              Terms of Service
+              {t('footer.terms')}
             </Link>
           </Stack>
         </Stack>

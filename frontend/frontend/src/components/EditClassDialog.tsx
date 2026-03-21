@@ -12,7 +12,10 @@ import {
   Select,
   MenuItem,
 } from '@mui/material'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { updateClass, type ClassUpdate, type ClassOut } from '../api/studySetsApi'
+import { translateSubjectOrClassName } from '../utils/recommendationI18n'
 
 interface EditClassDialogProps {
   open: boolean
@@ -21,10 +24,24 @@ interface EditClassDialogProps {
   classData: ClassOut | null
 }
 
-const subjects = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'History', 'Geography', 'Computer Science']
-const levels = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12']
+const SUBJECT_VALUES = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'History', 'Geography', 'Computer Science']
+const LEVEL_VALUES = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12']
+
+function levelMenuLabel(value: string, t: TFunction): string {
+  const keys: Record<string, string> = {
+    'Grade 7': 'classes.levelGrade7',
+    'Grade 8': 'classes.levelGrade8',
+    'Grade 9': 'classes.levelGrade9',
+    'Grade 10': 'classes.levelGrade10',
+    'Grade 11': 'classes.levelGrade11',
+    'Grade 12': 'classes.levelGrade12',
+  }
+  const k = keys[value]
+  return k ? t(k) : value
+}
 
 export default function EditClassDialog({ open, onClose, onSuccess, classData }: EditClassDialogProps) {
+  const { t } = useTranslation()
   const [className, setClassName] = useState('')
   const [subject, setSubject] = useState('')
   const [level, setLevel] = useState('')
@@ -32,7 +49,6 @@ export default function EditClassDialog({ open, onClose, onSuccess, classData }:
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // Populate form when classData changes
   useEffect(() => {
     if (classData) {
       setClassName(classData.class_name || '')
@@ -45,13 +61,12 @@ export default function EditClassDialog({ open, onClose, onSuccess, classData }:
   const handleSubmit = async () => {
     if (!classData) return
 
-    // Validation
     if (!className.trim()) {
-      setError('Class name is required')
+      setError(t('dialogs.createClass.classNameRequired'))
       return
     }
     if (!subject) {
-      setError('Subject is required')
+      setError(t('dialogs.createClass.subjectRequired'))
       return
     }
 
@@ -67,11 +82,11 @@ export default function EditClassDialog({ open, onClose, onSuccess, classData }:
       }
 
       await updateClass(classData.id, data)
-      
+
       onSuccess()
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update class')
+      setError(err instanceof Error ? err.message : t('dialogs.editClass.updateFailed'))
     } finally {
       setLoading(false)
     }
@@ -86,57 +101,57 @@ export default function EditClassDialog({ open, onClose, onSuccess, classData }:
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Edit Class</DialogTitle>
+      <DialogTitle>{t('dialogs.editClass.title')}</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
           <TextField
-            label="Class Name"
+            label={t('dialogs.createClass.className')}
             required
             fullWidth
             value={className}
             onChange={(e) => setClassName(e.target.value)}
-            placeholder="e.g., Math 101"
+            placeholder={t('dialogs.createClass.classNamePlaceholder')}
           />
 
           <FormControl fullWidth required>
-            <InputLabel>Subject</InputLabel>
+            <InputLabel>{t('classes.subject')}</InputLabel>
             <Select
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              label="Subject"
+              label={t('classes.subject')}
             >
-              {subjects.map((sub) => (
+              {SUBJECT_VALUES.map((sub) => (
                 <MenuItem key={sub} value={sub}>
-                  {sub}
+                  {translateSubjectOrClassName(sub, t)}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
 
           <FormControl fullWidth>
-            <InputLabel>Level / Grade</InputLabel>
+            <InputLabel>{t('dialogs.createClass.levelGrade')}</InputLabel>
             <Select
               value={level}
               onChange={(e) => setLevel(e.target.value)}
-              label="Level / Grade"
+              label={t('dialogs.createClass.levelGrade')}
             >
-              <MenuItem value="">None</MenuItem>
-              {levels.map((lvl) => (
+              <MenuItem value="">{t('common.none')}</MenuItem>
+              {LEVEL_VALUES.map((lvl) => (
                 <MenuItem key={lvl} value={lvl}>
-                  {lvl}
+                  {levelMenuLabel(lvl, t)}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
 
           <TextField
-            label="Description"
+            label={t('dialogs.createClass.description')}
             fullWidth
             multiline
             rows={3}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="Optional description for this class"
+            placeholder={t('dialogs.createClass.descriptionPlaceholder')}
           />
 
           {error && (
@@ -148,20 +163,16 @@ export default function EditClassDialog({ open, onClose, onSuccess, classData }:
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose} disabled={loading}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button
           onClick={handleSubmit}
           variant="contained"
           disabled={loading || !className.trim() || !subject}
         >
-          {loading ? 'Saving...' : 'Save Changes'}
+          {loading ? t('dialogs.editClass.saving') : t('dialogs.editClass.saveChanges')}
         </Button>
       </DialogActions>
     </Dialog>
   )
 }
-
-
-
-

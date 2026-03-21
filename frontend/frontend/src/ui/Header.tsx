@@ -1,10 +1,11 @@
 import { AppBar, Stack, Toolbar, Typography, Link, Button, IconButton, Box } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
-import LanguageIcon from '@mui/icons-material/Language';
 import logo from '../assets/logo.png';
 import { Link as RouterLink } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 export default function Header() {
+  const { t } = useTranslation();
   return (
     <AppBar
       position="static"
@@ -20,7 +21,7 @@ export default function Header() {
             sx={{ width: 32, height: 32, borderRadius: 1 }}
           />
           <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.50' }}>
-            Nova Edu
+            {t('header.brand')}
           </Typography>
         </Stack>
         <Stack
@@ -35,7 +36,7 @@ export default function Header() {
             underline="none"
             sx={{ color: 'neutral.50', fontWeight: 500 }}
           >
-            Home
+            {t('nav.home')}
           </Link>
           <Button
             component={RouterLink}
@@ -51,7 +52,7 @@ export default function Header() {
               },
             }}
           >
-            Login
+            {t('auth.login.login')}
           </Button>
           <Button
             component={RouterLink}
@@ -63,26 +64,7 @@ export default function Header() {
               '&:hover': { bgcolor: 'primary.50' },
             }}
           >
-            Sign Up
-          </Button>
-        </Stack>
-        <Stack
-          direction="row"
-          spacing={1}
-          alignItems="center"
-          sx={{ display: { xs: 'none', md: 'flex' }, ml: 3 }}
-        >
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<LanguageIcon />}
-            sx={{
-              borderColor: 'neutral.50',
-              color: 'neutral.50',
-              '&:hover': { borderColor: 'neutral.50', bgcolor: 'primary.300' },
-            }}
-          >
-            English
+            {t('header.signUp')}
           </Button>
         </Stack>
         <IconButton sx={{ display: { xs: 'flex', md: 'none' }, color: 'neutral.50', ml: 1 }}>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   Box,
   Typography,
@@ -22,11 +23,18 @@ import {
 } from '@mui/material'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import LightbulbIcon from '@mui/icons-material/Lightbulb'
-import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import { getProgress, getRecommendations, type ProgressResponse, type Recommendation } from '../api/studySetsApi'
 import { getUserRole } from '../api/authApi'
+import {
+  formatRecommendationReason,
+  recommendationTopicChipLabel,
+  translateDifficulty,
+  translateSubjectOrClassName,
+} from '../utils/recommendationI18n'
+import { formatShortLocaleDate } from '../utils/localeDate'
 
 export default function Progress() {
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const [progress, setProgress] = useState<ProgressResponse | null>(null)
   const [suggestion, setSuggestion] = useState<Recommendation | null>(null)
@@ -47,31 +55,20 @@ export default function Progress() {
     try {
       setLoading(true)
       setError(null)
-      const [progressData, recommendations] = await Promise.all([
-        getProgress(),
-        getRecommendations()
-      ])
+      const [progressData, recommendations] = await Promise.all([getProgress(), getRecommendations()])
       setProgress(progressData)
-      // Get the first recommendation as "Suggestion of the day"
       if (recommendations && recommendations.length > 0) {
         setSuggestion(recommendations[0])
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load progress')
+      setError(err instanceof Error ? err.message : t('progress.loadFailed'))
     } finally {
       setLoading(false)
     }
   }
 
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Never'
-    try {
-      const date = new Date(dateString)
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    } catch {
-      return 'Never'
-    }
-  }
+  const formatDate = (dateString?: string) =>
+    formatShortLocaleDate(dateString, i18n.language, t('common.never'))
 
   if (userRole !== 'student') {
     return null
@@ -80,7 +77,7 @@ export default function Progress() {
   return (
     <Box sx={{ py: 4, px: 4, flexGrow: 1, maxWidth: '1400px' }}>
       <Typography variant="h4" sx={{ fontWeight: 700, color: 'neutral.700', mb: 3 }}>
-        My Progress
+        {t('progress.title')}
       </Typography>
 
       {loading ? (
@@ -91,7 +88,6 @@ export default function Progress() {
         <Alert severity="error">{error}</Alert>
       ) : progress ? (
         <>
-          {/* Suggestion of the Day */}
           {suggestion && (
             <Paper
               elevation={0}
@@ -118,17 +114,17 @@ export default function Progress() {
                 </Box>
                 <Box sx={{ flexGrow: 1 }}>
                   <Typography variant="overline" sx={{ opacity: 0.9, letterSpacing: 1, mb: 0.5 }}>
-                    SUGGESTION OF THE DAY
+                    {t('progress.suggestionOfDay')}
                   </Typography>
                   <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
-                    {suggestion.topic}
+                    {recommendationTopicChipLabel(suggestion.topic, suggestion.topicIsSubject, t)}
                   </Typography>
                   <Typography variant="body1" sx={{ opacity: 0.95, mb: 2 }}>
-                    {suggestion.reason}
+                    {formatRecommendationReason(suggestion, t)}
                   </Typography>
                   <Stack direction="row" spacing={2} alignItems="center">
                     <Chip
-                      label={suggestion.difficulty}
+                      label={translateDifficulty(suggestion.difficulty, t)}
                       size="small"
                       sx={{
                         bgcolor: 'rgba(255, 255, 255, 0.2)',
@@ -150,7 +146,7 @@ export default function Progress() {
                         },
                       }}
                     >
-                      Start Practicing
+                      {t('progress.startPracticing')}
                     </Button>
                   </Stack>
                 </Box>
@@ -163,7 +159,7 @@ export default function Progress() {
               <Card elevation={0} sx={{ bgcolor: 'primary.main', color: 'white' }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ mb: 1, opacity: 0.9 }}>
-                    Overall Mastery
+                    {t('progress.overallMastery')}
                   </Typography>
                   <Typography variant="h3" sx={{ fontWeight: 700 }}>
                     {progress.total_mastery}%
@@ -175,7 +171,7 @@ export default function Progress() {
               <Card elevation={0} sx={{ bgcolor: 'success.main', color: 'white' }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ mb: 1, opacity: 0.9 }}>
-                    Items Completed
+                    {t('progress.itemsCompleted')}
                   </Typography>
                   <Typography variant="h3" sx={{ fontWeight: 700 }}>
                     {progress.total_items_completed} / {progress.total_items}
@@ -187,7 +183,7 @@ export default function Progress() {
               <Card elevation={0} sx={{ bgcolor: 'secondary.main', color: 'white' }}>
                 <CardContent>
                   <Typography variant="h6" sx={{ mb: 1, opacity: 0.9 }}>
-                    Study Sets
+                    {t('progress.studySetsShort')}
                   </Typography>
                   <Typography variant="h3" sx={{ fontWeight: 700 }}>
                     {progress.study_sets.length}
@@ -200,20 +196,20 @@ export default function Progress() {
           <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'neutral.200' }}>
             <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'neutral.200' }}>
               <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                Study Set Progress
+                {t('progress.studySetProgress')}
               </Typography>
             </Box>
             <TableContainer>
               <Table>
                 <TableHead>
                   <TableRow sx={{ bgcolor: 'neutral.50' }}>
-                    <TableCell sx={{ fontWeight: 600 }}>Study Set</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Subject</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Mastery</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Progress</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Attempts</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Last Activity</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('progress.colStudySet')}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('progress.colSubject')}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('progress.colMastery')}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('progress.colProgress')}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('progress.colAttempts')}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('progress.colLastActivity')}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{t('common.actions')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -221,13 +217,10 @@ export default function Progress() {
                     <TableRow>
                       <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                         <Typography variant="body2" sx={{ color: 'neutral.500', mb: 2 }}>
-                          No progress data yet. Start studying to track your progress!
+                          {t('progress.emptyProgress')}
                         </Typography>
-                        <Button
-                          variant="contained"
-                          onClick={() => navigate('/dashboard/study-sets')}
-                        >
-                          Browse Study Sets
+                        <Button variant="contained" onClick={() => navigate('/dashboard/study-sets')}>
+                          {t('progress.browseStudySets')}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -241,7 +234,11 @@ export default function Progress() {
                         </TableCell>
                         <TableCell>
                           {set.subject ? (
-                            <Chip label={set.subject} size="small" sx={{ bgcolor: 'neutral.100' }} />
+                            <Chip
+                              label={translateSubjectOrClassName(set.subject, t)}
+                              size="small"
+                              sx={{ bgcolor: 'neutral.100' }}
+                            />
                           ) : (
                             <Typography variant="body2" sx={{ color: 'neutral.500' }}>
                               -
@@ -254,7 +251,13 @@ export default function Progress() {
                               variant="determinate"
                               value={set.mastery_percentage}
                               sx={{ flexGrow: 1, height: 8, borderRadius: 4 }}
-                              color={set.mastery_percentage >= 80 ? 'success' : set.mastery_percentage >= 60 ? 'warning' : 'error'}
+                              color={
+                                set.mastery_percentage >= 80
+                                  ? 'success'
+                                  : set.mastery_percentage >= 60
+                                    ? 'warning'
+                                    : 'error'
+                              }
                             />
                             <Typography variant="body2" sx={{ minWidth: 45, fontWeight: 600 }}>
                               {set.mastery_percentage}%
@@ -281,7 +284,7 @@ export default function Progress() {
                             startIcon={<PlayArrowIcon />}
                             onClick={() => navigate(`/dashboard/study-sets/${set.set_id}/practice`)}
                           >
-                            Study
+                            {t('common.study')}
                           </Button>
                         </TableCell>
                       </TableRow>

@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box,
   Typography,
   Paper,
   Grid,
   Card,
-  CardContent,
   Avatar,
-  Chip,
   LinearProgress,
   Stack,
   FormControl,
@@ -19,12 +18,17 @@ import {
 } from '@mui/material'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment'
-import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import StarIcon from '@mui/icons-material/Star'
-import { getUserRole, getMe } from '../api/authApi'
+import { getUserRole } from '../api/authApi'
 import { getLeaderboard, getStreaks, getAllBadges, getPointsBreakdown, getClasses, type LeaderboardResponse, type StreaksResponse, type BadgesResponse, type PointsBreakdown, type ClassOut } from '../api/studySetsApi'
+import {
+  translateBadgeName,
+  translateGamificationEarnedDescription,
+  translateGamificationAvailableDescription,
+} from '../utils/badgeI18n'
 
 export default function Gamification() {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardResponse>({ leaderboard: [], current_user_rank: null })
@@ -33,28 +37,15 @@ export default function Gamification() {
   const [pointsData, setPointsData] = useState<PointsBreakdown>({ total_points: 0, total_quizzes: 0, average_accuracy: 0, breakdown: { from_quizzes: 0, streak_bonus: 0, accuracy_bonus: 0 } })
   const [classes, setClasses] = useState<ClassOut[]>([])
   const [selectedClassId, setSelectedClassId] = useState<number | undefined>(undefined)
-  const [userName, setUserName] = useState<string>('')
   const userRole = getUserRole()
   const isStudent = userRole === 'student'
 
   useEffect(() => {
     if (isStudent) {
-      fetchUserData()
       fetchAllData()
       fetchClasses()
     }
   }, [isStudent, selectedClassId])
-
-  const fetchUserData = async () => {
-    try {
-      const userData = await getMe()
-      if (userData.full_name) {
-        setUserName(userData.full_name)
-      }
-    } catch (err) {
-      console.error('Failed to fetch user data:', err)
-    }
-  }
 
   const fetchAllData = async () => {
     try {
@@ -71,7 +62,7 @@ export default function Gamification() {
       setBadgesData(badges)
       setPointsData(points)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load gamification data')
+      setError(err instanceof Error ? err.message : t('gamification.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -90,11 +81,11 @@ export default function Gamification() {
     return (
       <Box sx={{ py: 4, flexGrow: 1 }}>
         <Typography variant="h4" sx={{ fontWeight: 700, color: 'neutral.700', mb: 2 }}>
-          Gamification
+          {t('gamification.title')}
         </Typography>
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="body1" sx={{ color: 'neutral.500' }}>
-            Gamification features are available for students only.
+            {t('gamification.studentsOnly')}
           </Typography>
         </Paper>
       </Box>
@@ -120,7 +111,7 @@ export default function Gamification() {
   return (
     <Box sx={{ py: 4, flexGrow: 1 }}>
       <Typography variant="h4" sx={{ fontWeight: 700, color: 'neutral.700', mb: 3 }}>
-        Gamification
+        {t('gamification.title')}
       </Typography>
 
       <Grid container spacing={3}>
@@ -133,14 +124,18 @@ export default function Gamification() {
                   {streaksData.streak}
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                  Day Streak
+                  {t('gamification.dayStreak')}
                 </Typography>
               </Box>
             </Stack>
             {streaksData.next_badge && (
               <Box>
                 <Typography variant="body2" sx={{ color: 'neutral.500', mb: 1 }}>
-                  Next: {streaksData.next_badge.name} ({streaksData.next_badge.progress}/{streaksData.next_badge.target})
+                  {t('gamification.nextBadgeShort', {
+                    name: translateBadgeName(t, streaksData.next_badge.badge_id, streaksData.next_badge.name),
+                    progress: streaksData.next_badge.progress,
+                    target: streaksData.next_badge.target,
+                  })}
                 </Typography>
                 <LinearProgress
                   variant="determinate"
@@ -159,14 +154,14 @@ export default function Gamification() {
                   {pointsData.total_points}
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                  Total Points
+                  {t('gamification.totalPoints')}
                 </Typography>
               </Box>
             </Stack>
             <Stack spacing={1.5}>
               <Box>
                 <Typography variant="body2" sx={{ color: 'neutral.500', mb: 0.5 }}>
-                  Quizzes Completed
+                  {t('gamification.quizzesCompleted')}
                 </Typography>
                 <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main' }}>
                   {pointsData.total_quizzes}
@@ -174,7 +169,7 @@ export default function Gamification() {
               </Box>
               <Box>
                 <Typography variant="body2" sx={{ color: 'neutral.500', mb: 0.5 }}>
-                  Average Accuracy
+                  {t('gamification.averageAccuracy')}
                 </Typography>
                 <Typography variant="h6" sx={{ fontWeight: 600, color: 'success.main' }}>
                   {pointsData.average_accuracy.toFixed(1)}%
@@ -188,17 +183,17 @@ export default function Gamification() {
           <Paper elevation={0} sx={{ p: 3, mb: 3 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700' }}>
-                Leaderboard
+                {t('gamification.leaderboard')}
               </Typography>
               {classes.length > 0 && (
                 <FormControl size="small" sx={{ minWidth: 200 }}>
-                  <InputLabel>Class</InputLabel>
+                  <InputLabel>{t('gamification.classFilter')}</InputLabel>
                   <Select
                     value={selectedClassId || ''}
                     onChange={(e) => setSelectedClassId(e.target.value ? Number(e.target.value) : undefined)}
-                    label="Class"
+                    label={t('gamification.classFilter')}
                   >
-                    <MenuItem value="">All Classes</MenuItem>
+                    <MenuItem value="">{t('gamification.allClasses')}</MenuItem>
                     {classes.map((classItem) => (
                       <MenuItem key={classItem.id} value={classItem.id}>
                         {classItem.class_name}
@@ -244,10 +239,10 @@ export default function Gamification() {
                       </Avatar>
                       <Box sx={{ flexGrow: 1 }}>
                         <Typography variant="body1" sx={{ fontWeight: 600, color: 'neutral.700' }}>
-                          {entry.name}{isCurrentUser ? ' (You)' : ''}
+                          {entry.name}{isCurrentUser ? t('gamification.youSuffix') : ''}
                         </Typography>
                         <Typography variant="caption" sx={{ color: 'neutral.500' }}>
-                          {entry.points} points
+                          {t('common.pointsLabel', { count: entry.points })}
                         </Typography>
                       </Box>
                     </Box>
@@ -277,10 +272,11 @@ export default function Gamification() {
                     </Avatar>
                     <Box sx={{ flexGrow: 1 }}>
                       <Typography variant="body1" sx={{ fontWeight: 600, color: 'neutral.700' }}>
-                        {leaderboardData.current_user_rank.name} (You)
+                        {leaderboardData.current_user_rank.name}
+                        {t('gamification.youSuffix')}
                       </Typography>
                       <Typography variant="caption" sx={{ color: 'neutral.500' }}>
-                        {leaderboardData.current_user_rank.points} points
+                        {t('common.pointsLabel', { count: leaderboardData.current_user_rank.points })}
                       </Typography>
                     </Box>
                   </Box>
@@ -289,7 +285,7 @@ export default function Gamification() {
             ) : (
               <Box sx={{ textAlign: 'center', py: 4 }}>
                 <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                  No leaderboard data available yet. Start studying to earn points!
+                  {t('gamification.leaderboardEmpty')}
                 </Typography>
               </Box>
             )}
@@ -301,14 +297,14 @@ export default function Gamification() {
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 3 }}>
               <EmojiEventsIcon sx={{ color: 'primary.main' }} />
               <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700' }}>
-                Badges & Achievements
+                {t('gamification.badgesAchievements')}
               </Typography>
             </Stack>
 
             {badgesData.earned_badges.length > 0 && (
               <Box sx={{ mb: 4 }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2, color: 'neutral.700' }}>
-                  Earned Badges
+                  {t('gamification.earnedBadges')}
                 </Typography>
                 <Grid container spacing={2}>
                   {badgesData.earned_badges.map((badge, idx) => (
@@ -328,10 +324,15 @@ export default function Gamification() {
                           {badge.icon}
                         </Typography>
                         <Typography variant="body2" sx={{ fontWeight: 600, color: 'neutral.700', mb: 0.5 }}>
-                          {badge.name}
+                          {translateBadgeName(t, badge.badge_id, badge.name)}
                         </Typography>
                         <Typography variant="caption" sx={{ color: 'neutral.500' }}>
-                          {badge.description}
+                          {translateGamificationEarnedDescription(
+                            t,
+                            badge.badge_id,
+                            badge.description,
+                            badge.i18n_params
+                          )}
                         </Typography>
                       </Card>
                     </Grid>
@@ -343,7 +344,7 @@ export default function Gamification() {
             {badgesData.available_badges.length > 0 && (
               <Box>
                 <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2, color: 'neutral.700' }}>
-                  Available Badges
+                  {t('gamification.availableBadges')}
                 </Typography>
                 <Grid container spacing={2}>
                   {badgesData.available_badges.map((badge, idx) => (
@@ -363,10 +364,15 @@ export default function Gamification() {
                           {badge.icon}
                         </Typography>
                         <Typography variant="body2" sx={{ fontWeight: 600, color: 'neutral.700', mb: 0.5 }}>
-                          {badge.name}
+                          {translateBadgeName(t, badge.badge_id, badge.name)}
                         </Typography>
                         <Typography variant="caption" sx={{ color: 'neutral.500', mb: 1, display: 'block' }}>
-                          {badge.description}
+                          {translateGamificationAvailableDescription(
+                            t,
+                            badge.badge_id,
+                            badge.description,
+                            badge.target ?? 0
+                          )}
                         </Typography>
                         {badge.progress !== undefined && badge.target !== undefined && (
                           <Box>
@@ -390,7 +396,7 @@ export default function Gamification() {
             {badgesData.earned_badges.length === 0 && badgesData.available_badges.length === 0 && (
               <Box sx={{ textAlign: 'center', py: 4 }}>
                 <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                  No badges available yet. Start studying to earn your first badge!
+                  {t('gamification.badgesEmpty')}
                 </Typography>
               </Box>
             )}

@@ -1,10 +1,13 @@
 import { Box, Typography, Paper, Button } from '@mui/material';
 import Grid from '@mui/material/Grid';
+import { useTranslation } from 'react-i18next';
+
 export default function Statistics() {
+  const { t } = useTranslation();
   return (
     <Box sx={{ py: 4, flexGrow: 1 }}>
       <Typography variant="h4" sx={{ fontWeight: 700, color: 'neutral.700', mb: 3 }}>
-        Statistics
+        {t('statistics.title')}
       </Typography>
         <Grid container spacing={3}>
           <Grid size={{ xs: 12, md: 6 }}>
@@ -26,9 +29,9 @@ export default function Statistics() {
                 <Typography sx={{ opacity: 0.9, color: 'inherit' }}>Class A</Typography>
 
                 <Box sx={{ mt: 2 }}>
-                  <Typography sx={{ fontWeight: 600, color: 'inherit' }}>📈 Key Statistics</Typography>
-                  <Typography sx={{ color: 'inherit' }}>Total Study Sets: 5</Typography>
-                  <Typography sx={{ color: 'inherit' }}>Average Quiz Score: 70%</Typography>
+                  <Typography sx={{ fontWeight: 600, color: 'inherit' }}>{t('statistics.keyStats')}</Typography>
+                  <Typography sx={{ color: 'inherit' }}>{t('statistics.totalSets', { count: 5 })}</Typography>
+                  <Typography sx={{ color: 'inherit' }}>{t('statistics.avgScore', { pct: 70 })}</Typography>
                 </Box>
               </Box>
             </Paper>
@@ -44,7 +47,7 @@ export default function Statistics() {
                 color: 'white',
               }}
             >
-              <Typography variant="h6" sx={{ color: 'inherit' }}>Suggestion of the day</Typography>
+              <Typography variant="h6" sx={{ color: 'inherit' }}>{t('statistics.suggestionDay')}</Typography>
               <Paper
                 elevation={0}
                 sx={{
@@ -56,7 +59,7 @@ export default function Statistics() {
                 }}
               >
                 <Typography sx={{ color: 'inherit' }}>
-                  You should repeat Databases Study Set once more to get a higher score
+                  {t('statistics.suggestionBody')}
                 </Typography>
               </Paper>
             </Paper>
@@ -74,12 +77,12 @@ export default function Statistics() {
               }}
             >
               <Typography variant="h6" sx={{ mb: 2, color: 'inherit' }}>
-                Leaderboard · Databases ▼
+                {t('statistics.leaderboard')}
               </Typography>
 
-              <Typography sx={{ color: 'inherit' }}>1. Ayan — 75%</Typography>
-              <Typography sx={{ color: 'inherit' }}>2. Nurassyl — 70%</Typography>
-              <Typography sx={{ color: 'inherit' }}>3. Dias — 69%</Typography>
+              <Typography sx={{ color: 'inherit' }}>{t('statistics.rank1')}</Typography>
+              <Typography sx={{ color: 'inherit' }}>{t('statistics.rank2')}</Typography>
+              <Typography sx={{ color: 'inherit' }}>{t('statistics.rank3')}</Typography>
             </Paper>
           </Grid>
 
@@ -93,7 +96,7 @@ export default function Statistics() {
               }}
             >
               <Typography variant="h6" sx={{ mb: 2, color: 'inherit' }}>
-                My Study Sets
+                {t('statistics.myStudySets')}
               </Typography>
 
               <Box
@@ -105,9 +108,9 @@ export default function Statistics() {
                   color: 'inherit',
                 }}
               >
-                <Typography sx={{ color: 'inherit' }}>Databases</Typography>
+                <Typography sx={{ color: 'inherit' }}>{t('statistics.databases')}</Typography>
                 <Button variant="contained" color="inherit" sx={{ color: 'text.primary' }}>
-                  Study
+                  {t('common.study')}
                 </Button>
               </Box>
 
@@ -119,9 +122,9 @@ export default function Statistics() {
                   color: 'inherit',
                 }}
               >
-                <Typography sx={{ color: 'inherit' }}>Machine Learning</Typography>
+                <Typography sx={{ color: 'inherit' }}>{t('statistics.machineLearning')}</Typography>
                 <Button variant="contained" color="inherit" sx={{ color: 'text.primary' }}>
-                  Study
+                  {t('common.study')}
                 </Button>
               </Box>
 
@@ -135,7 +138,7 @@ export default function Statistics() {
                   textTransform: 'none',
                 }}
               >
-                + Create New Study Set
+                {t('statistics.createNewSet')}
               </Button>
             </Paper>
           </Grid>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Typography,
   Box,
@@ -9,20 +10,17 @@ import {
   LinearProgress,
   Stack,
   Avatar,
-  MenuItem,
-  Select,
-  FormControl,
   CircularProgress,
 } from '@mui/material'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment'
 import NotificationsIcon from '@mui/icons-material/Notifications'
-import CloudOffIcon from '@mui/icons-material/CloudOff'
 import CloudDoneIcon from '@mui/icons-material/CloudDone'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import LightbulbIcon from '@mui/icons-material/Lightbulb'
-import { getMe, getUserRole } from '../api/authApi'
+import { getMe } from '../api/authApi'
+import { translateBadgeName } from '../utils/badgeI18n'
 import {
   getDashboardStats,
   getDashboardAssignments,
@@ -37,12 +35,22 @@ import {
   type LeaderboardResponse,
   type StreaksResponse,
 } from '../api/studySetsApi'
+import {
+  formatRecommendationReason,
+  recommendationTopicChipLabel,
+  translateDifficulty,
+} from '../utils/recommendationI18n'
+
+function dateLocaleForI18n(lng: string) {
+  if (lng === 'kz' || lng.startsWith('kk')) return 'kk-KZ'
+  if (lng === 'ru' || lng.startsWith('ru')) return 'ru-RU'
+  return 'en-US'
+}
 
 export default function Dashboard() {
-  const [firstName, setFirstName] = useState('User')
+  const { t, i18n } = useTranslation()
+  const [firstName, setFirstName] = useState(() => t('dashboard.defaultUserName'))
   const [userRole, setUserRole] = useState<string | null>(null)
-  const [userId, setUserId] = useState<number | null>(null)
-  const [userName, setUserName] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState<DashboardStatsType>({})
   const [assignments, setAssignments] = useState<DashboardAssignment[]>([])
@@ -50,7 +58,7 @@ export default function Dashboard() {
   const [nextRecommendation, setNextRecommendation] = useState<NextRecommendation | null>(null)
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardResponse>({ leaderboard: [], current_user_rank: null })
   const [streaksData, setStreaksData] = useState<StreaksResponse>({ streak: 0, badges: [], next_badge: null })
-  const [selectedClassId, setSelectedClassId] = useState<number | undefined>(undefined)
+  const [selectedClassId] = useState<number | undefined>(undefined)
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -67,12 +75,10 @@ export default function Dashboard() {
     try {
       const userData = await getMe()
       if (userData.full_name) {
-        const nameParts = userData.full_name.trim().split(' ')
-        setFirstName(nameParts[0] || 'User')
-        setUserName(userData.full_name)
-      }
-      if (userData.id) {
-        setUserId(userData.id)
+        const nameParts = userData.full_name.trim().split(/\s+/)
+        setFirstName(nameParts[0] || i18n.t('dashboard.defaultUserName'))
+      } else {
+        setFirstName(i18n.t('dashboard.defaultUserName'))
       }
       if (userData.role) {
         setUserRole(userData.role)
@@ -109,12 +115,21 @@ export default function Dashboard() {
 
   const isTeacherView = userRole === 'teacher'
 
+  const assignmentStatusLabel = (status: string) => {
+    if (status === 'Completed') return t('common.statusCompleted')
+    if (status === 'In progress') return t('common.statusInProgress')
+    if (status === 'Not started') return t('common.statusNotStarted')
+    return status
+  }
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Completed':
         return 'success'
       case 'In progress':
         return 'warning'
+      case 'Not started':
+        return 'default'
       default:
         return 'default'
     }
@@ -170,12 +185,12 @@ export default function Dashboard() {
         <Grid size={{ xs: 12, md: 8 }}>
           <Paper elevation={0} sx={{ p: 3, mb: 3, bgcolor: 'primary.50' }}>
             <Typography variant="h4" sx={{ fontWeight: 700, color: 'neutral.700', mb: 1 }}>
-              Welcome back, {firstName}!
+              {t('dashboard.welcome', { name: firstName })}
             </Typography>
             {isTeacherView ? (
               <>
                 <Typography variant="body2" sx={{ color: 'neutral.500', mb: 3 }}>
-                  Manage your classes and track student progress
+                  {t('dashboard.teacherSubtitle')}
                 </Typography>
                 <Button
                   variant="contained"
@@ -185,16 +200,19 @@ export default function Dashboard() {
                   component={RouterLink}
                   to="/dashboard/subjects"
                 >
-                  View My Classes
+                  {t('dashboard.viewMyClasses')}
                 </Button>
                 <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                  {stats.classes_active || 0} active classes • {stats.active_students || 0} students active today
+                  {t('dashboard.activeClassesStudents', {
+                    classes: stats.classes_active || 0,
+                    students: stats.active_students || 0,
+                  })}
                 </Typography>
               </>
             ) : (
               <>
                 <Typography variant="body2" sx={{ color: 'neutral.500', mb: 3 }}>
-                  Keep up your learning streak!
+                  {t('dashboard.studentSubtitle')}
                 </Typography>
                 <Button
                   variant="contained"
@@ -203,11 +221,18 @@ export default function Dashboard() {
                   sx={{ mb: 2, bgcolor: 'primary.main' }}
                   onClick={handleContinue}
                 >
-                  Continue where you left off
+                  {t('dashboard.continueWhereLeftOff')}
                 </Button>
                 {recommendations.length > 0 && (
                   <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                    Next up: {recommendations[0].topic} • {recommendations[0].difficulty}
+                    {t('dashboard.nextUp', {
+                      topic: recommendationTopicChipLabel(
+                        recommendations[0].topic,
+                        recommendations[0].topicIsSubject,
+                        t,
+                      ),
+                      difficulty: translateDifficulty(recommendations[0].difficulty, t),
+                    })}
                   </Typography>
                 )}
               </>
@@ -219,25 +244,25 @@ export default function Dashboard() {
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
                 <EmojiEventsIcon sx={{ color: 'primary.main' }} />
                 <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700' }}>
-                  Streaks & Badges
+                  {t('dashboard.streaksBadges')}
                 </Typography>
               </Stack>
               <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 3 }}>
                 <LocalFireDepartmentIcon sx={{ color: 'warning.main', fontSize: 32 }} />
                 <Typography variant="h5" sx={{ fontWeight: 600, color: 'neutral.700' }}>
-                  {streaksData.streak}-day streak
+                  {t('dashboard.streakDays', { count: streaksData.streak })}
                 </Typography>
               </Stack>
               {streaksData.badges.length > 0 && (
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="body2" sx={{ color: 'neutral.500', mb: 1 }}>
-                    Recent badges:
+                    {t('dashboard.recentBadges')}
                   </Typography>
                   <Stack direction="row" spacing={1}>
                     {streaksData.badges.map((badge, idx) => (
                       <Chip
                         key={idx}
-                        label={`${badge.icon} ${badge.name}`}
+                        label={`${badge.icon} ${translateBadgeName(t, badge.badge_id, badge.name)}`}
                         size="small"
                         sx={{ bgcolor: 'primary.50', color: 'primary.main' }}
                       />
@@ -248,7 +273,11 @@ export default function Dashboard() {
               {streaksData.next_badge && (
                 <Box>
                   <Typography variant="body2" sx={{ color: 'neutral.500', mb: 1 }}>
-                    Next badge: {streaksData.next_badge.name} ({streaksData.next_badge.progress}/{streaksData.next_badge.target})
+                    {t('dashboard.nextBadge', {
+                      name: translateBadgeName(t, streaksData.next_badge.badge_id, streaksData.next_badge.name),
+                      progress: streaksData.next_badge.progress,
+                      target: streaksData.next_badge.target,
+                    })}
                   </Typography>
                   <LinearProgress
                     variant="determinate"
@@ -262,19 +291,19 @@ export default function Dashboard() {
 
           <Paper elevation={0} sx={{ p: 3, mb: 3 }}>
             <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700', mb: 2 }}>
-              {isTeacherView ? 'My Classes' : 'Assigned to you'}
+              {isTeacherView ? t('dashboard.myClassesSection') : t('dashboard.assignedToYou')}
             </Typography>
             {isTeacherView ? (
               <Box sx={{ textAlign: 'center', py: 4 }}>
                 <Typography variant="body2" sx={{ color: 'neutral.500', mb: 2 }}>
-                  {stats.classes_active || 0} active classes
+                  {t('dashboard.activeClassesCount', { count: stats.classes_active || 0 })}
                 </Typography>
                 <Button
                   component={RouterLink}
                   to="/dashboard/subjects"
                   variant="outlined"
                 >
-                  View all classes
+                  {t('dashboard.viewAllClasses')}
                 </Button>
               </Box>
             ) : assignments.length > 0 ? (
@@ -298,13 +327,14 @@ export default function Dashboard() {
                         </Typography>
                         {assignment.due && (
                           <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                            Due {new Date(assignment.due).toLocaleDateString()}
+                            {t('common.due')}{' '}
+                            {new Date(assignment.due).toLocaleDateString(dateLocaleForI18n(i18n.language))}
                           </Typography>
                         )}
                       </Box>
                       <Stack direction="row" spacing={2} alignItems="center">
                         <Chip
-                          label={assignment.status}
+                          label={assignmentStatusLabel(assignment.status)}
                           size="small"
                           color={getStatusColor(assignment.status) as 'success' | 'warning' | 'default'}
                         />
@@ -314,7 +344,11 @@ export default function Dashboard() {
                           startIcon={<PlayArrowIcon />}
                           onClick={() => handleStartAssignment(assignment.set_id)}
                         >
-                          {assignment.status === 'Completed' ? 'Review' : assignment.status === 'In progress' ? 'Continue' : 'Start'}
+                          {assignment.status === 'Completed'
+                            ? t('common.review')
+                            : assignment.status === 'In progress'
+                              ? t('common.continue')
+                              : t('common.start')}
                         </Button>
                       </Stack>
                     </Box>
@@ -326,13 +360,13 @@ export default function Dashboard() {
                   sx={{ mt: 2 }}
                   size="small"
                 >
-                  View all in My classes
+                  {t('dashboard.viewAllInMyClasses')}
                 </Button>
               </>
             ) : (
               <Box sx={{ textAlign: 'center', py: 4 }}>
                 <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                  No assignments yet
+                  {t('dashboard.noAssignments')}
                 </Typography>
               </Box>
             )}
@@ -364,18 +398,22 @@ export default function Dashboard() {
                 </Box>
                 <Box sx={{ flexGrow: 1 }}>
                   <Typography variant="overline" sx={{ opacity: 0.9, letterSpacing: 1, mb: 0.5 }}>
-                    RECOMMENDED NEXT
+                    {t('aiPage.recommendedNext')}
                   </Typography>
                   <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
                     {nextRecommendation.title}
                   </Typography>
                   <Typography variant="body1" sx={{ opacity: 0.95, mb: 2 }}>
-                    {nextRecommendation.reason}
+                    {formatRecommendationReason(nextRecommendation, t)}
                   </Typography>
                   <Stack direction="row" spacing={2} alignItems="center">
                     {nextRecommendation.topic && (
                       <Chip
-                        label={nextRecommendation.topic}
+                        label={recommendationTopicChipLabel(
+                          nextRecommendation.topic,
+                          nextRecommendation.topicIsSubject,
+                          t,
+                        )}
                         size="small"
                         sx={{
                           bgcolor: 'rgba(255, 255, 255, 0.2)',
@@ -386,7 +424,7 @@ export default function Dashboard() {
                     )}
                     {nextRecommendation.difficulty && (
                       <Chip
-                        label={nextRecommendation.difficulty}
+                        label={translateDifficulty(nextRecommendation.difficulty, t)}
                         size="small"
                         sx={{
                           bgcolor: 'rgba(255, 255, 255, 0.2)',
@@ -409,7 +447,7 @@ export default function Dashboard() {
                         },
                       }}
                     >
-                      Start Studying
+                      {t('aiPage.startStudying')}
                     </Button>
                   </Stack>
                 </Box>
@@ -420,7 +458,7 @@ export default function Dashboard() {
           {!isTeacherView && (
             <Paper elevation={0} sx={{ p: 3, mb: 3 }}>
               <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700', mb: 2 }}>
-                More Recommendations
+                {t('dashboard.moreRecommendations')}
               </Typography>
               {recommendations.length > 0 ? (
                 <Stack spacing={2}>
@@ -438,15 +476,15 @@ export default function Dashboard() {
                     >
                       <Box sx={{ flexGrow: 1 }}>
                         <Typography variant="body1" sx={{ fontWeight: 600, color: 'neutral.700', mb: 0.5 }}>
-                          {rec.topic}
+                          {recommendationTopicChipLabel(rec.topic, rec.topicIsSubject, t)}
                         </Typography>
                         <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                          {rec.reason}
+                          {formatRecommendationReason(rec, t)}
                         </Typography>
                       </Box>
                       <Stack direction="row" spacing={2} alignItems="center">
                         <Chip
-                          label={rec.difficulty}
+                          label={translateDifficulty(rec.difficulty, t)}
                           size="small"
                           color={getDifficultyColor(rec.difficulty) as 'success' | 'warning' | 'error' | 'default'}
                         />
@@ -455,7 +493,7 @@ export default function Dashboard() {
                           size="small"
                           onClick={() => handlePracticeRecommendation(rec.set_id)}
                         >
-                          Practice
+                          {t('common.practice')}
                         </Button>
                       </Stack>
                     </Box>
@@ -464,7 +502,7 @@ export default function Dashboard() {
               ) : (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
                   <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                    No additional recommendations yet
+                    {t('dashboard.noMoreRecommendations')}
                   </Typography>
                 </Box>
               )}
@@ -477,7 +515,7 @@ export default function Dashboard() {
                 <Stack direction="row" spacing={1} alignItems="center">
                   <CloudDoneIcon sx={{ color: 'success.main' }} />
                   <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                    Online • Synced
+                    {t('dashboard.onlineSynced')}
                   </Typography>
                 </Stack>
                 <Button
@@ -486,7 +524,7 @@ export default function Dashboard() {
                   variant="outlined"
                   size="small"
                 >
-                  Manage offline downloads
+                  {t('dashboard.manageOffline')}
                 </Button>
               </Stack>
             </Paper>
@@ -496,12 +534,12 @@ export default function Dashboard() {
         <Grid size={{ xs: 12, md: 4 }}>
           <Paper elevation={0} sx={{ p: 3, mb: 3 }}>
             <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700', mb: 3 }}>
-              {isTeacherView ? 'Class Activity Today' : 'Today'}
+              {isTeacherView ? t('dashboard.classActivityToday') : t('dashboard.today')}
             </Typography>
             <Stack spacing={3}>
               <Box>
                 <Typography variant="body2" sx={{ color: 'neutral.500', mb: 0.5 }}>
-                  {isTeacherView ? 'Active students' : 'Questions answered today'}
+                  {isTeacherView ? t('dashboard.activeStudents') : t('dashboard.questionsAnsweredToday')}
                 </Typography>
                 <Typography variant="h4" sx={{ fontWeight: 700, color: 'primary.main' }}>
                   {isTeacherView ? (stats.active_students || 0) : (stats.questions_answered || 0)}
@@ -509,7 +547,7 @@ export default function Dashboard() {
               </Box>
               <Box>
                 <Typography variant="body2" sx={{ color: 'neutral.500', mb: 0.5 }}>
-                  {isTeacherView ? 'Assignments submitted' : 'Accuracy today'}
+                  {isTeacherView ? t('dashboard.assignmentsSubmitted') : t('dashboard.accuracyToday')}
                 </Typography>
                 <Typography variant="h4" sx={{ fontWeight: 700, color: 'success.main' }}>
                   {isTeacherView ? `${stats.assignments_submitted || 0}` : `${Math.round(stats.accuracy || 0)}%`}
@@ -517,10 +555,10 @@ export default function Dashboard() {
               </Box>
               <Box>
                 <Typography variant="body2" sx={{ color: 'neutral.500', mb: 0.5 }}>
-                  {isTeacherView ? 'Classes active' : 'Time spent'}
+                  {isTeacherView ? t('dashboard.classesActive') : t('dashboard.timeSpent')}
                 </Typography>
                 <Typography variant="h4" sx={{ fontWeight: 700, color: 'neutral.700' }}>
-                  {isTeacherView ? (stats.classes_active || 0) : `${stats.time_spent || 0} min`}
+                  {isTeacherView ? (stats.classes_active || 0) : t('dashboard.minutes', { count: stats.time_spent || 0 })}
                 </Typography>
               </Box>
             </Stack>
@@ -530,7 +568,7 @@ export default function Dashboard() {
             <Paper elevation={0} sx={{ p: 3, mb: 3 }}>
               <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
                 <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700' }}>
-                  Class leaderboard
+                  {t('dashboard.classLeaderboard')}
                 </Typography>
               </Stack>
               {leaderboardData.leaderboard.length > 0 || leaderboardData.current_user_rank ? (
@@ -561,10 +599,10 @@ export default function Dashboard() {
                           </Avatar>
                           <Box sx={{ flexGrow: 1 }}>
                             <Typography variant="body2" sx={{ fontWeight: 600, color: 'neutral.700' }}>
-                              {student.name}{isCurrentUser ? ' (You)' : ''}
+                              {student.name}{isCurrentUser ? t('dashboard.youSuffix') : ''}
                             </Typography>
                             <Typography variant="caption" sx={{ color: 'neutral.500' }}>
-                              {student.points} pts
+                              {student.points} {t('common.pts')}
                             </Typography>
                           </Box>
                         </Box>
@@ -594,10 +632,10 @@ export default function Dashboard() {
                         </Avatar>
                         <Box sx={{ flexGrow: 1 }}>
                           <Typography variant="body2" sx={{ fontWeight: 600, color: 'neutral.700' }}>
-                            {leaderboardData.current_user_rank.name} (You)
+                            {leaderboardData.current_user_rank.name}{t('dashboard.youSuffix')}
                           </Typography>
                           <Typography variant="caption" sx={{ color: 'neutral.500' }}>
-                            {leaderboardData.current_user_rank.points} pts
+                            {leaderboardData.current_user_rank.points} {t('common.pts')}
                           </Typography>
                         </Box>
                       </Box>
@@ -610,13 +648,13 @@ export default function Dashboard() {
                     size="small"
                     fullWidth
                   >
-                    View full leaderboard
+                    {t('dashboard.viewFullLeaderboard')}
                   </Button>
                 </>
               ) : (
                 <Box sx={{ textAlign: 'center', py: 2 }}>
                   <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                    No leaderboard data yet
+                    {t('dashboard.noLeaderboard')}
                   </Typography>
                 </Box>
               )}
@@ -627,7 +665,7 @@ export default function Dashboard() {
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
               <NotificationsIcon sx={{ color: 'primary.main' }} />
               <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700' }}>
-                Recent activity
+                {t('dashboard.recentActivity')}
               </Typography>
             </Stack>
             <Stack spacing={1.5}>
@@ -640,7 +678,9 @@ export default function Dashboard() {
                   }}
                 >
                   <Typography variant="body2" sx={{ color: 'neutral.700' }}>
-                    {assignments.length} new assignment{assignments.length > 1 ? 's' : ''} assigned
+                    {assignments.length > 1
+                      ? t('dashboard.newAssignmentsPlural', { count: assignments.length })
+                      : t('dashboard.newAssignments', { count: assignments.length })}
                   </Typography>
                 </Box>
               )}
@@ -653,14 +693,16 @@ export default function Dashboard() {
                   }}
                 >
                   <Typography variant="body2" sx={{ color: 'neutral.700' }}>
-                    You earned {streaksData.badges.length} badge{streaksData.badges.length > 1 ? 's' : ''}!
+                    {streaksData.badges.length > 1
+                      ? t('dashboard.earnedBadgesPlural', { count: streaksData.badges.length })
+                      : t('dashboard.earnedBadges', { count: streaksData.badges.length })}
                   </Typography>
                 </Box>
               )}
               {assignments.length === 0 && streaksData.badges.length === 0 && (
                 <Box sx={{ textAlign: 'center', py: 2 }}>
                   <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                    No recent activity
+                    {t('dashboard.noRecentActivity')}
                   </Typography>
                 </Box>
               )}

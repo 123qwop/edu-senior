@@ -2,8 +2,11 @@ import { Box, Typography, Paper, Chip, CircularProgress, Alert, Button, TextFiel
 import Grid from '@mui/material/Grid'
 import { useEffect, useState } from 'react'
 import { Link as RouterLink, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { getClasses, deleteClass, type ClassOut } from '../api/studySetsApi'
 import { getUserRole } from '../api/authApi'
+import { translateSubjectOrClassName } from '../utils/recommendationI18n'
 import ClassIcon from '@mui/icons-material/Class'
 import PeopleIcon from '@mui/icons-material/People'
 import SearchIcon from '@mui/icons-material/Search'
@@ -15,10 +18,24 @@ import CreateClassDialog from '../components/CreateClassDialog'
 import EditClassDialog from '../components/EditClassDialog'
 import AddAssignmentDialog from '../components/AddAssignmentDialog'
 
-const subjects = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'History', 'Geography', 'Computer Science']
-const levels = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12']
+const SUBJECT_VALUES = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'History', 'Geography', 'Computer Science']
+const LEVEL_VALUES = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12']
+
+function levelMenuLabel(value: string, t: TFunction): string {
+  const keys: Record<string, string> = {
+    'Grade 7': 'classes.levelGrade7',
+    'Grade 8': 'classes.levelGrade8',
+    'Grade 9': 'classes.levelGrade9',
+    'Grade 10': 'classes.levelGrade10',
+    'Grade 11': 'classes.levelGrade11',
+    'Grade 12': 'classes.levelGrade12',
+  }
+  const k = keys[value]
+  return k ? t(k) : value
+}
 
 export default function Classes() {
+  const { t } = useTranslation()
   const [classes, setClasses] = useState<ClassOut[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -49,7 +66,7 @@ export default function Classes() {
       const data = await getClasses()
       setClasses(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load classes')
+      setError(err instanceof Error ? err.message : t('classes.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -110,7 +127,7 @@ export default function Classes() {
       setSelectedClassId(null)
       fetchClasses()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to delete class')
+      alert(err instanceof Error ? err.message : t('common.deleteFailedClass'))
     } finally {
       setDeleting(false)
     }
@@ -149,13 +166,13 @@ export default function Classes() {
     return (
       <Box sx={{ py: 4, flexGrow: 1 }}>
         <Typography variant="h4" sx={{ fontWeight: 700, color: 'neutral.700', mb: 3 }}>
-          My Classes
+          {t('classes.title')}
         </Typography>
 
         {classes.length === 0 ? (
           <Paper sx={{ p: 4, textAlign: 'center' }}>
             <Typography variant="body1" sx={{ color: 'neutral.500' }}>
-              You're not enrolled in any classes yet.
+              {t('common.studentNotEnrolled')}
             </Typography>
           </Paper>
         ) : (
@@ -187,7 +204,7 @@ export default function Classes() {
 
                   {classItem.subject && (
                     <Chip
-                      label={classItem.subject}
+                      label={translateSubjectOrClassName(classItem.subject, t)}
                       size="small"
                       sx={{
                         mb: 2,
@@ -201,7 +218,7 @@ export default function Classes() {
                   <Box sx={{ display: 'flex', alignItems: 'center', mt: 'auto', pt: 2 }}>
                     <PeopleIcon sx={{ mr: 1, fontSize: 18, color: 'neutral.500' }} />
                     <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                      Enrolled
+                      {t('common.enrolled')}
                     </Typography>
                   </Box>
                 </Paper>
@@ -217,7 +234,7 @@ export default function Classes() {
   return (
     <Box sx={{ py: 4, flexGrow: 1 }}>
       <Typography variant="h4" sx={{ fontWeight: 700, color: 'neutral.700', mb: 3 }}>
-        My Classes
+        {t('classes.title')}
       </Typography>
 
       {/* Toolbar */}
@@ -227,7 +244,7 @@ export default function Classes() {
           <Grid size={{ xs: 12, md: 4 }}>
             <TextField
               fullWidth
-              placeholder="Search classes..."
+              placeholder={t('classes.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               size="small"
@@ -244,16 +261,16 @@ export default function Classes() {
           {/* Subject Filter */}
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <FormControl fullWidth size="small">
-              <InputLabel>Subject</InputLabel>
+              <InputLabel>{t('classes.subject')}</InputLabel>
               <Select
                 value={selectedSubject}
                 onChange={(e) => setSelectedSubject(e.target.value)}
-                label="Subject"
+                label={t('classes.subject')}
               >
-                <MenuItem value="">All Subjects</MenuItem>
-                {subjects.map((sub) => (
+                <MenuItem value="">{t('common.allSubjects')}</MenuItem>
+                {SUBJECT_VALUES.map((sub) => (
                   <MenuItem key={sub} value={sub}>
-                    {sub}
+                    {translateSubjectOrClassName(sub, t)}
                   </MenuItem>
                 ))}
               </Select>
@@ -263,16 +280,16 @@ export default function Classes() {
           {/* Level Filter */}
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <FormControl fullWidth size="small">
-              <InputLabel>Level</InputLabel>
+              <InputLabel>{t('classes.level')}</InputLabel>
               <Select
                 value={selectedLevel}
                 onChange={(e) => setSelectedLevel(e.target.value)}
-                label="Level"
+                label={t('classes.level')}
               >
-                <MenuItem value="">All Levels</MenuItem>
-                {levels.map((lvl) => (
+                <MenuItem value="">{t('common.allLevels')}</MenuItem>
+                {LEVEL_VALUES.map((lvl) => (
                   <MenuItem key={lvl} value={lvl}>
-                    {lvl}
+                    {levelMenuLabel(lvl, t)}
                   </MenuItem>
                 ))}
               </Select>
@@ -288,7 +305,7 @@ export default function Classes() {
               onClick={() => setCreateDialogOpen(true)}
               sx={{ bgcolor: 'primary.main' }}
             >
-              Create Class
+              {t('classes.createClass')}
             </Button>
           </Grid>
         </Grid>
@@ -298,9 +315,7 @@ export default function Classes() {
       {filteredClasses.length === 0 ? (
         <Paper sx={{ p: 4, textAlign: 'center' }}>
           <Typography variant="body1" sx={{ color: 'neutral.500' }}>
-            {classes.length === 0
-              ? "You haven't created any classes yet. Create a class to get started."
-              : 'No classes match your filters.'}
+            {classes.length === 0 ? t('common.createFirstClassHint') : t('common.noMatchFilters')}
           </Typography>
         </Paper>
       ) : (
@@ -308,13 +323,13 @@ export default function Classes() {
           <Table>
             <TableHead>
               <TableRow sx={{ bgcolor: 'neutral.50' }}>
-                <TableCell sx={{ fontWeight: 600 }}>Class Name</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Subject</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Level / Grade</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Students</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Active Assignments</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Average Mastery</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('common.classNameCol')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('classes.subject')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('common.levelGrade')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('classes.students')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('common.activeAssignments')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('common.avgMastery')}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>{t('common.actions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -347,16 +362,20 @@ export default function Classes() {
                     </Button>
                   </TableCell>
                   <TableCell>
-                    {classItem.subject || (
+                    {classItem.subject ? (
+                      translateSubjectOrClassName(classItem.subject, t)
+                    ) : (
                       <Typography variant="body2" sx={{ color: 'neutral.400' }}>
-                        Not set
+                        {t('common.notSet')}
                       </Typography>
                     )}
                   </TableCell>
                   <TableCell>
-                    {classItem.level || (
+                    {classItem.level ? (
+                      levelMenuLabel(classItem.level, t)
+                    ) : (
                       <Typography variant="body2" sx={{ color: 'neutral.400' }}>
-                        Not set
+                        {t('common.notSet')}
                       </Typography>
                     )}
                   </TableCell>
@@ -367,7 +386,7 @@ export default function Classes() {
                       `${Math.round(classItem.average_mastery)}%`
                     ) : (
                       <Typography variant="body2" sx={{ color: 'neutral.400' }}>
-                        N/A
+                        {t('common.na')}
                       </Typography>
                     )}
                   </TableCell>
@@ -410,14 +429,14 @@ export default function Classes() {
         onClose={handleMenuClose}
       >
         <MenuItem onClick={() => selectedClassId && handleViewClass(selectedClassId)}>
-          View Class Details
+          {t('common.viewClassDetails')}
         </MenuItem>
         <MenuItem onClick={() => selectedClassId && handleAddAssignment(selectedClassId)}>
-          Add Assignment
+          {t('classes.addAssignment')}
         </MenuItem>
-        <MenuItem onClick={handleEditClass}>Edit Class</MenuItem>
+        <MenuItem onClick={handleEditClass}>{t('common.editClass')}</MenuItem>
         <MenuItem onClick={handleArchiveClass} sx={{ color: 'error.main' }}>
-          Delete Class
+          {t('common.deleteClass')}
         </MenuItem>
       </Menu>
 
@@ -462,18 +481,16 @@ export default function Classes() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteDialogOpen} onClose={handleDeleteDialogClose}>
-        <DialogTitle>Delete Class</DialogTitle>
+        <DialogTitle>{t('common.deleteClassConfirmTitle')}</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            Are you sure you want to delete this class? This action cannot be undone. All students will be removed from the class and all assignments will be deleted.
-          </DialogContentText>
+          <DialogContentText>{t('common.deleteClassConfirmBody')}</DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleDeleteDialogClose} disabled={deleting}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button onClick={handleDeleteConfirm} color="error" variant="contained" disabled={deleting}>
-            {deleting ? 'Deleting...' : 'Delete'}
+            {deleting ? t('classes.deleting') : t('common.delete')}
           </Button>
         </DialogActions>
       </Dialog>

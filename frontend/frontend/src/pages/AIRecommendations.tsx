@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import {
   Box,
@@ -15,11 +16,16 @@ import {
 } from '@mui/material'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import LightbulbIcon from '@mui/icons-material/Lightbulb'
-import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import { getNextRecommendation, getRecommendations, type NextRecommendation, type Recommendation } from '../api/studySetsApi'
+import {
+  formatRecommendationReason,
+  recommendationTopicChipLabel,
+  translateDifficulty,
+} from '../utils/recommendationI18n'
 import { getUserRole } from '../api/authApi'
 
 export default function AIRecommendations() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [nextRecommendation, setNextRecommendation] = useState<NextRecommendation | null>(null)
   const [allRecommendations, setAllRecommendations] = useState<Recommendation[]>([])
@@ -46,7 +52,7 @@ export default function AIRecommendations() {
       setNextRecommendation(next)
       setAllRecommendations(all)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load recommendations')
+      setError(err instanceof Error ? err.message : t('aiPage.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -71,7 +77,7 @@ export default function AIRecommendations() {
   return (
     <Box sx={{ py: 4, px: 4, flexGrow: 1, maxWidth: '1400px' }}>
       <Typography variant="h4" sx={{ fontWeight: 700, color: 'neutral.700', mb: 3 }}>
-        AI Recommendations
+        {t('aiPage.title')}
       </Typography>
 
       {error && (
@@ -107,18 +113,22 @@ export default function AIRecommendations() {
             </Box>
             <Box sx={{ flexGrow: 1 }}>
               <Typography variant="overline" sx={{ opacity: 0.9, letterSpacing: 1, mb: 0.5 }}>
-                RECOMMENDED NEXT
+                {t('aiPage.recommendedNext')}
               </Typography>
               <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
                 {nextRecommendation.title}
               </Typography>
               <Typography variant="body1" sx={{ opacity: 0.95, mb: 2 }}>
-                {nextRecommendation.reason}
+                {formatRecommendationReason(nextRecommendation, t)}
               </Typography>
               <Stack direction="row" spacing={2} alignItems="center">
                 {nextRecommendation.topic && (
                   <Chip
-                    label={nextRecommendation.topic}
+                    label={recommendationTopicChipLabel(
+                      nextRecommendation.topic,
+                      nextRecommendation.topicIsSubject,
+                      t,
+                    )}
                     size="small"
                     sx={{
                       bgcolor: 'rgba(255, 255, 255, 0.2)',
@@ -129,7 +139,7 @@ export default function AIRecommendations() {
                 )}
                 {nextRecommendation.difficulty && (
                   <Chip
-                    label={nextRecommendation.difficulty}
+                    label={translateDifficulty(nextRecommendation.difficulty, t)}
                     size="small"
                     sx={{
                       bgcolor: 'rgba(255, 255, 255, 0.2)',
@@ -152,7 +162,7 @@ export default function AIRecommendations() {
                     },
                   }}
                 >
-                  Start Studying
+                  {t('aiPage.startStudying')}
                 </Button>
               </Stack>
             </Box>
@@ -162,13 +172,13 @@ export default function AIRecommendations() {
 
       {/* All Recommendations */}
       <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700', mb: 2 }}>
-        All Recommendations
+        {t('aiPage.allRecommendations')}
       </Typography>
 
       {allRecommendations.length === 0 ? (
         <Paper elevation={0} sx={{ p: 4, textAlign: 'center', bgcolor: 'neutral.50' }}>
           <Typography variant="body1" sx={{ color: 'neutral.500' }}>
-            No recommendations available at this time. Complete some study sets to get personalized recommendations!
+            {t('aiPage.empty')}
           </Typography>
         </Paper>
       ) : (
@@ -191,16 +201,16 @@ export default function AIRecommendations() {
                   <Stack spacing={2}>
                     <Box>
                       <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700', mb: 1 }}>
-                        {rec.topic}
+                        {recommendationTopicChipLabel(rec.topic, rec.topicIsSubject, t)}
                       </Typography>
                       <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                        {rec.reason}
+                        {formatRecommendationReason(rec, t)}
                       </Typography>
                     </Box>
                     <Stack direction="row" spacing={1}>
                       {rec.difficulty && (
                         <Chip
-                          label={rec.difficulty}
+                          label={translateDifficulty(rec.difficulty, t)}
                           size="small"
                           sx={{
                             bgcolor: rec.difficulty === 'Easy' ? 'success.50' : rec.difficulty === 'Hard' ? 'error.50' : 'warning.50',
@@ -215,7 +225,7 @@ export default function AIRecommendations() {
                       onClick={() => handleStudy(rec.set_id)}
                       fullWidth
                     >
-                      Practice
+                      {t('common.practice')}
                     </Button>
                   </Stack>
                 </CardContent>

@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import {
   Box,
   Typography,
@@ -32,7 +34,7 @@ import AssignmentIcon from '@mui/icons-material/Assignment'
 import AnalyticsIcon from '@mui/icons-material/Analytics'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import { Link as RouterLink } from 'react-router-dom'
-import { getUserRole, isTeacher, getMe } from '../api/authApi'
+import { getUserRole, isTeacher } from '../api/authApi'
 import { getStudySets, deleteStudySet, getStudySet, getStudySetQuestions, type StudySetOut } from '../api/studySetsApi'
 import CreateStudySetDialog from '../components/CreateStudySetDialog'
 import EditStudySetDialog from '../components/EditStudySetDialog'
@@ -43,19 +45,19 @@ import { downloadStudySet, removeDownloadedStudySet, isStudySetDownloaded, getAl
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import { syncOfflineAttempts } from '../utils/syncOfflineAttempts'
 
-// Helper function to format last activity
-function formatLastActivity(dateString: string | null): string {
-  if (!dateString) return 'Never studied'
+// Helper function to format last activity (display only; API values unchanged)
+function formatLastActivity(dateString: string | null, t: TFunction): string {
+  if (!dateString) return t('studySets.activityNever')
   const date = new Date(dateString)
   const now = new Date()
   const diffMs = now.getTime() - date.getTime()
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-  
-  if (diffDays === 0) return 'Today'
-  if (diffDays === 1) return '1d ago'
-  if (diffDays < 7) return `${diffDays}d ago`
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`
-  return `${Math.floor(diffDays / 30)}mo ago`
+
+  if (diffDays === 0) return t('studySets.activityToday')
+  if (diffDays === 1) return t('studySets.activity1d')
+  if (diffDays < 7) return t('studySets.activityNd', { days: diffDays })
+  if (diffDays < 30) return t('studySets.activityNw', { weeks: Math.floor(diffDays / 7) })
+  return t('studySets.activityNmo', { months: Math.floor(diffDays / 30) })
 }
 
 interface StudySetCardProps {
@@ -74,6 +76,7 @@ interface StudySetCardProps {
 }
 
 function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, isDownloading, isOnline, onEdit, onEditContent, userId, onDelete, onAssign, onView }: StudySetCardProps) {
+  const { t } = useTranslation()
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const open = Boolean(anchorEl)
 
@@ -150,10 +153,13 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
         {/* Meta Info */}
         <Stack spacing={1} sx={{ mb: 2 }}>
           <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-            {studySet.item_count} {studySet.type === 'Flashcards' ? 'cards' : 'questions'}
+            {studySet.item_count}{' '}
+            {studySet.type === 'Flashcards' ? t('common.cards') : t('common.questions')}
           </Typography>
           <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-            Last activity: {studySet.lastActivity || 'Never studied'}
+            {t('studySets.lastActivity', {
+              value: studySet.lastActivity || t('studySets.activityNever'),
+            })}
           </Typography>
         </Stack>
 
@@ -162,7 +168,7 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
           <Box sx={{ mb: 2 }}>
             <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
               <Typography variant="body2" sx={{ color: 'neutral.500' }}>
-                Mastery
+                {t('studySets.mastery')}
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 600, color: 'neutral.700' }}>
                 {studySet.mastery}%
@@ -180,21 +186,21 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
         <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 2 }}>
           {studySet.isRecommended && (
             <Chip
-              label="Recommended"
+              label={t('studySets.recommended')}
               size="small"
               sx={{ bgcolor: 'primary.50', color: 'primary.main', fontSize: '0.75rem' }}
             />
           )}
           {studySet.isDownloaded && (
             <Chip
-              label="Downloaded"
+              label={t('studySets.downloaded')}
               size="small"
               sx={{ bgcolor: 'success.50', color: 'success.main', fontSize: '0.75rem' }}
             />
           )}
           {studySet.is_assigned && (
             <Chip
-              label="Assigned"
+              label={t('studySets.assigned')}
               size="small"
               sx={{ bgcolor: 'warning.50', color: 'warning.main', fontSize: '0.75rem' }}
             />
@@ -224,7 +230,7 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
                 onClick={() => onEdit?.(studySet)}
                 sx={{ bgcolor: 'primary.main' }}
               >
-                Edit Details
+                {t('studySets.editDetails')}
               </Button>
               <Button
                 variant="outlined"
@@ -232,7 +238,7 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
                 onClick={() => onEditContent?.(studySet)}
                 sx={{ borderColor: 'primary.main', color: 'primary.main' }}
               >
-                Edit Content
+                {t('studySets.editContent')}
               </Button>
               <IconButton
                 size="small"
@@ -241,7 +247,7 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
                   onAssign?.(studySet)
                   handleClose()
                 }}
-                title="Assign to class"
+                title={t('studySets.assignToClass')}
               >
                 <AssignmentIcon fontSize="small" />
               </IconButton>
@@ -252,7 +258,7 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
                   onView?.(studySet)
                   handleClose()
                 }}
-                title="View analytics"
+                title={t('studySets.viewAnalytics')}
               >
                 <AnalyticsIcon fontSize="small" />
               </IconButton>
@@ -267,7 +273,7 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
                 to={`/dashboard/study-sets/${studySet.id}/practice`}
                 sx={{ bgcolor: 'primary.main' }}
               >
-                {studySet.mastery !== null && studySet.mastery > 0 ? 'Continue' : 'Study'}
+                {studySet.mastery !== null && studySet.mastery > 0 ? t('common.continue') : t('common.study')}
               </Button>
               {userId !== null && studySet.creator_id === userId && (
                 <>
@@ -278,7 +284,7 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
                     onClick={() => onEdit?.(studySet)}
                     sx={{ borderColor: 'primary.main', color: 'primary.main' }}
                   >
-                    Edit Details
+                    {t('studySets.editDetails')}
                   </Button>
                   <Button
                     variant="outlined"
@@ -286,7 +292,7 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
                     onClick={() => onEditContent?.(studySet)}
                     sx={{ borderColor: 'primary.main', color: 'primary.main' }}
                   >
-                    Edit Content
+                    {t('studySets.editContent')}
                   </Button>
                 </>
               )}
@@ -306,7 +312,7 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
                 }
               }}
               disabled={!isOnline && !studySet.isDownloaded}
-              title={studySet.isDownloaded ? 'Remove download' : 'Download for offline'}
+              title={studySet.isDownloaded ? t('studySets.removeDownload') : t('studySets.downloadOffline')}
               sx={{ 
                 color: studySet.isDownloaded ? 'success.main' : 'neutral.500',
                 '&:disabled': { opacity: 0.5 }
@@ -325,7 +331,7 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
             size="small"
             sx={{ color: 'neutral.500' }}
             onClick={() => onView?.(studySet)}
-            title="View details"
+            title={t('studySets.viewDetails')}
           >
             <VisibilityIcon fontSize="small" />
           </IconButton>
@@ -344,7 +350,7 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
               handleClose()
             }}
           >
-            Edit Details
+            {t('studySets.editDetails')}
           </MenuItem>
         )}
         {(isTeacherView || (userId !== null && studySet.creator_id === userId)) && (
@@ -354,7 +360,7 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
               handleClose()
             }}
           >
-            Edit Content
+            {t('studySets.editContent')}
           </MenuItem>
         )}
         <MenuItem
@@ -363,7 +369,7 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
             onView?.(studySet)
           }}
         >
-          View details
+          {t('studySets.viewDetails')}
         </MenuItem>
         {isTeacherView && (
           <MenuItem
@@ -372,7 +378,7 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
               handleClose()
             }}
           >
-            Assign to class
+            {t('studySets.assignToClass')}
           </MenuItem>
         )}
         {isTeacherView && (
@@ -382,19 +388,19 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
               handleClose()
             }}
           >
-            View analytics
+            {t('studySets.viewAnalytics')}
           </MenuItem>
         )}
         <MenuItem
           onClick={() => {
-            if (window.confirm('Are you sure you want to delete this study set? This action cannot be undone.')) {
+            if (window.confirm(t('studySets.deleteConfirm'))) {
               onDelete?.(studySet.id)
             }
             handleClose()
           }}
           sx={{ color: 'error.main' }}
         >
-          Delete
+          {t('common.delete')}
         </MenuItem>
       </Menu>
     </Card>
@@ -402,6 +408,7 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
 }
 
 export default function StudySets() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const isOnline = useOnlineStatus()
   const [studySets, setStudySets] = useState<(StudySetOut & { lastActivity?: string; isRecommended?: boolean; owner?: string; isDownloaded?: boolean })[]>([])
@@ -452,7 +459,7 @@ export default function StudySets() {
       
       const enrichedData = data.map((set) => ({
         ...set,
-        lastActivity: set.updated_at ? formatLastActivity(set.updated_at) : 'Never studied',
+        lastActivity: set.updated_at ? formatLastActivity(set.updated_at, t) : t('studySets.activityNever'),
         isRecommended: false,
         owner: userId !== null && set.creator_id === userId ? (userRole === 'teacher' ? 'teacher' : 'student') : 'other',
         isDownloaded: downloadedSetIds.has(set.id),
@@ -462,7 +469,7 @@ export default function StudySets() {
       setStudySets(enrichedData)
     } catch (err) {
       console.error('Failed to fetch study sets:', err)
-      setError(err instanceof Error ? err.message : 'Failed to load study sets')
+      setError(err instanceof Error ? err.message : t('studySets.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -535,7 +542,7 @@ export default function StudySets() {
         is_assigned: false,
         is_downloaded: true,
         mastery: null,
-        lastActivity: 'Downloaded',
+        lastActivity: t('studySets.downloaded'),
         isRecommended: false,
         owner: 'other',
         isDownloaded: true,
@@ -544,7 +551,7 @@ export default function StudySets() {
       setStudySets(enrichedData)
     } catch (err) {
       console.error('Failed to load downloaded sets:', err)
-      setError('Failed to load downloaded study sets')
+      setError(t('studySets.loadDownloadedFailed'))
     } finally {
       setLoading(false)
     }
@@ -552,11 +559,19 @@ export default function StudySets() {
 
   const isTeacherView = isTeacher()
 
-  // Student tabs: All, Assigned, My sets, Offline
-  // Teacher tabs: My sets, Shared with me, All
-  const studentTabs = ['All', 'Assigned', 'My sets', 'Offline']
-  const teacherTabs = ['My sets', 'Shared with me', 'All']
-  const tabs = isTeacherView ? teacherTabs : studentTabs
+  // Student tabs: All, Assigned, My sets, Offline — Teacher: My sets, Shared with me, All
+  const tabs = useMemo(
+    () =>
+      isTeacherView
+        ? [t('studySets.tabMySets'), t('studySets.tabSharedWithMe'), t('studySets.tabAll')]
+        : [
+            t('studySets.tabAll'),
+            t('studySets.tabAssigned'),
+            t('studySets.tabMySets'),
+            t('studySets.tabOffline'),
+          ],
+    [t, isTeacherView],
+  )
 
   // Filter study sets based on current tab (client-side filtering for tabs)
   const filteredSets = studySets.filter((set) => {
@@ -597,7 +612,7 @@ export default function StudySets() {
 
   const handleDownloadForOffline = async (setId: number) => {
     if (!isOnline) {
-      alert('You must be online to download study sets')
+      alert(t('studySets.mustOnlineDownload'))
       return
     }
 
@@ -627,10 +642,10 @@ export default function StudySets() {
         await loadDownloadedSets()
       }
       
-      alert('Study set downloaded successfully!')
+      alert(t('studySets.downloadSuccess'))
     } catch (err) {
       console.error('Failed to download study set:', err)
-      alert(err instanceof Error ? err.message : 'Failed to download study set')
+      alert(err instanceof Error ? err.message : t('studySets.downloadFailed'))
     } finally {
       setDownloadingSetId(null)
     }
@@ -644,7 +659,7 @@ export default function StudySets() {
       ))
     } catch (err) {
       console.error('Failed to remove downloaded study set:', err)
-      alert(err instanceof Error ? err.message : 'Failed to remove downloaded study set')
+      alert(err instanceof Error ? err.message : t('studySets.removeDownloadFailed'))
     }
   }
 
@@ -653,7 +668,7 @@ export default function StudySets() {
       await deleteStudySet(setId)
       fetchStudySets()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to delete study set')
+      alert(err instanceof Error ? err.message : t('studySets.deleteFailed'))
     }
   }
 
@@ -679,14 +694,14 @@ export default function StudySets() {
     <Box sx={{ py: 4, flexGrow: 1 }}>
       {/* Header */}
       <Typography variant="h4" sx={{ fontWeight: 700, color: 'neutral.700', mb: 3 }}>
-        {isTeacherView ? 'Study Materials' : 'Study Sets'}
+        {isTeacherView ? t('studySets.titleTeacher') : t('studySets.title')}
       </Typography>
 
       {/* Tabs */}
       <Box sx={{ borderBottom: 1, borderColor: 'neutral.200', mb: 3 }}>
         <Tabs value={currentTab} onChange={(_, newValue) => setCurrentTab(newValue)}>
-          {tabs.map((tab) => (
-            <Tab key={tab} label={tab} sx={{ textTransform: 'none', fontWeight: 600 }} />
+          {tabs.map((tab, index) => (
+            <Tab key={index} label={tab} sx={{ textTransform: 'none', fontWeight: 600 }} />
           ))}
         </Tabs>
       </Box>
@@ -696,7 +711,7 @@ export default function StudySets() {
         <Paper elevation={0} sx={{ p: 2, mb: 2, bgcolor: 'warning.50', border: '1px solid', borderColor: 'warning.main', borderRadius: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography variant="body2" sx={{ color: 'warning.main', fontWeight: 600 }}>
-              ⚠️ Offline Mode - Only downloaded study sets are available
+              {t('studySets.offlineMode')}
             </Typography>
           </Box>
         </Paper>
@@ -709,7 +724,7 @@ export default function StudySets() {
           <Grid size={{ xs: 12, md: 4 }}>
             <TextField
               fullWidth
-              placeholder="Search by title / subject / tags"
+              placeholder={t('studySets.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               size="small"
@@ -726,42 +741,46 @@ export default function StudySets() {
           {/* Filters */}
           <Grid size={{ xs: 6, md: 2 }}>
             <FormControl fullWidth size="small">
-              <InputLabel>Subject</InputLabel>
-              <Select value={selectedSubject} onChange={(e) => setSelectedSubject(e.target.value)} label="Subject">
-                <MenuItem value="">All</MenuItem>
-                <MenuItem value="Mathematics">Mathematics</MenuItem>
-                <MenuItem value="Physics">Physics</MenuItem>
-                <MenuItem value="Chemistry">Chemistry</MenuItem>
+              <InputLabel>{t('studySets.subject')}</InputLabel>
+              <Select
+                value={selectedSubject}
+                onChange={(e) => setSelectedSubject(e.target.value)}
+                label={t('studySets.subject')}
+              >
+                <MenuItem value="">{t('common.all')}</MenuItem>
+                <MenuItem value="Mathematics">{t('studySets.subjectMathematics')}</MenuItem>
+                <MenuItem value="Physics">{t('studySets.subjectPhysics')}</MenuItem>
+                <MenuItem value="Chemistry">{t('studySets.subjectChemistry')}</MenuItem>
               </Select>
             </FormControl>
           </Grid>
 
           <Grid size={{ xs: 6, md: 2 }}>
             <FormControl fullWidth size="small">
-              <InputLabel>Type</InputLabel>
-              <Select value={selectedType} onChange={(e) => setSelectedType(e.target.value)} label="Type">
-                <MenuItem value="">All</MenuItem>
-                <MenuItem value="Flashcards">Flashcards</MenuItem>
-                <MenuItem value="Quiz">Quiz</MenuItem>
-                <MenuItem value="Problem set">Problem set</MenuItem>
+              <InputLabel>{t('studySets.type')}</InputLabel>
+              <Select value={selectedType} onChange={(e) => setSelectedType(e.target.value)} label={t('studySets.type')}>
+                <MenuItem value="">{t('common.all')}</MenuItem>
+                <MenuItem value="Flashcards">{t('studySets.typeFlashcards')}</MenuItem>
+                <MenuItem value="Quiz">{t('studySets.typeQuiz')}</MenuItem>
+                <MenuItem value="Problem set">{t('studySets.typeProblemSet')}</MenuItem>
               </Select>
             </FormControl>
           </Grid>
 
           <Grid size={{ xs: 6, md: 2 }}>
             <FormControl fullWidth size="small">
-              <InputLabel>Ownership</InputLabel>
+              <InputLabel>{t('studySets.ownership')}</InputLabel>
               <Select
                 value={selectedOwnership}
                 onChange={(e) => setSelectedOwnership(e.target.value)}
-                label="Ownership"
+                label={t('studySets.ownership')}
               >
-                <MenuItem value="">All</MenuItem>
-                <MenuItem value="Mine">Mine</MenuItem>
+                <MenuItem value="">{t('common.all')}</MenuItem>
+                <MenuItem value="Mine">{t('studySets.mine')}</MenuItem>
                 {isTeacherView ? (
-                  <MenuItem value="Shared with me">Shared with me</MenuItem>
+                  <MenuItem value="Shared with me">{t('studySets.sharedWithMe')}</MenuItem>
                 ) : (
-                  <MenuItem value="Assigned">Assigned</MenuItem>
+                  <MenuItem value="Assigned">{t('studySets.assignedFilter')}</MenuItem>
                 )}
               </Select>
             </FormControl>
@@ -769,12 +788,12 @@ export default function StudySets() {
 
           <Grid size={{ xs: 6, md: 2 }}>
             <FormControl fullWidth size="small">
-              <InputLabel>Sort</InputLabel>
-              <Select value={sortBy} onChange={(e) => setSortBy(e.target.value)} label="Sort">
-                <MenuItem value="recently-used">Recently used</MenuItem>
-                <MenuItem value="recently-created">Recently created</MenuItem>
-                <MenuItem value="a-z">A-Z</MenuItem>
-                <MenuItem value="recommended">Recommended first</MenuItem>
+              <InputLabel>{t('studySets.sort')}</InputLabel>
+              <Select value={sortBy} onChange={(e) => setSortBy(e.target.value)} label={t('studySets.sort')}>
+                <MenuItem value="recently-used">{t('studySets.sortRecentlyUsed')}</MenuItem>
+                <MenuItem value="recently-created">{t('studySets.sortRecentlyCreated')}</MenuItem>
+                <MenuItem value="a-z">{t('studySets.sortAZ')}</MenuItem>
+                <MenuItem value="recommended">{t('studySets.sortRecommended')}</MenuItem>
               </Select>
             </FormControl>
           </Grid>
@@ -787,7 +806,7 @@ export default function StudySets() {
                 onClick={() => setCreateDialogOpen(true)}
                 sx={{ bgcolor: 'primary.main', whiteSpace: 'nowrap' }}
               >
-                {isTeacherView ? 'Create study set' : 'Create a personal study set'}
+                {isTeacherView ? t('studySets.createStudySet') : t('studySets.createPersonalSet')}
               </Button>
             </Grid>
           )}
@@ -798,7 +817,7 @@ export default function StudySets() {
       {loading ? (
         <Paper elevation={0} sx={{ p: 6, textAlign: 'center', bgcolor: 'neutral.50' }}>
           <Typography variant="body1" sx={{ color: 'neutral.500' }}>
-            Loading study sets...
+            {t('studySets.loadingSets')}
           </Typography>
         </Paper>
       ) : error ? (
@@ -834,7 +853,7 @@ export default function StudySets() {
       ) : (
         <Paper elevation={0} sx={{ p: 6, textAlign: 'center', bgcolor: 'neutral.50' }}>
           <Typography variant="body1" sx={{ color: 'neutral.500' }}>
-            No study sets found. {isTeacherView ? 'Create your first study set!' : 'Start by exploring assigned sets or create your own.'}
+            {isTeacherView ? t('studySets.emptyTeacher') : t('studySets.emptyStudent')}
           </Typography>
         </Paper>
       )}
@@ -864,14 +883,15 @@ export default function StudySets() {
       {/* Assign Study Set Dialog - Navigate to classes for now */}
       {assignDialogOpen && (
         <Dialog open={assignDialogOpen} onClose={() => setAssignDialogOpen(false)}>
-          <DialogTitle>Assign Study Set</DialogTitle>
+          <DialogTitle>
+            {t('studySets.assignDialogTitle')}
+            {selectedStudySetForAssign ? ` — ${selectedStudySetForAssign.title}` : ''}
+          </DialogTitle>
           <DialogContent>
-            <Typography>
-              To assign this study set, please go to the Classes page and select a class, then use the "Add Assignment" option.
-            </Typography>
+            <Typography>{t('studySets.assignDialogBody')}</Typography>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setAssignDialogOpen(false)}>Cancel</Button>
+            <Button onClick={() => setAssignDialogOpen(false)}>{t('common.cancel')}</Button>
             <Button
               variant="contained"
               onClick={() => {
@@ -879,7 +899,7 @@ export default function StudySets() {
                 navigate('/dashboard/subjects')
               }}
             >
-              Go to Classes
+              {t('studySets.goToClasses')}
             </Button>
           </DialogActions>
         </Dialog>

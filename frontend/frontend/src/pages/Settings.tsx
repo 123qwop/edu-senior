@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Box,
   Typography,
@@ -19,6 +20,7 @@ import Grid from '@mui/material/Grid'
 import { getMe, updateProfile, deleteAccount, type UserUpdate } from '../api/authApi'
 
 export default function Settings() {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -48,7 +50,7 @@ export default function Settings() {
         confirmPassword: '',
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load profile')
+      setError(err instanceof Error ? err.message : t('settings.loadFailed'))
     } finally {
       setLoading(false)
     }
@@ -71,11 +73,11 @@ export default function Settings() {
     // Validate password if provided
     if (formData.password) {
       if (formData.password.length < 6) {
-        setError('Password must be at least 6 characters long')
+        setError(t('settings.passwordShort'))
         return
       }
       if (formData.password !== formData.confirmPassword) {
-        setError('Passwords do not match')
+        setError(t('settings.passwordMismatch'))
         return
       }
     }
@@ -100,7 +102,7 @@ export default function Settings() {
         confirmPassword: '',
       }))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update profile')
+      setError(err instanceof Error ? err.message : t('settings.updateFailed'))
     } finally {
       setSaving(false)
     }
@@ -117,12 +119,12 @@ export default function Settings() {
   return (
     <Box sx={{ py: 4, px: 4, flexGrow: 1, maxWidth: '800px' }}>
       <Typography variant="h4" sx={{ fontWeight: 700, color: 'neutral.700', mb: 3 }}>
-        Settings
+        {t('settings.title')}
       </Typography>
 
       <Paper elevation={0} sx={{ p: 4, border: '1px solid', borderColor: 'neutral.200' }}>
         <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700', mb: 3 }}>
-          Profile Information
+          {t('settings.profileInfo')}
         </Typography>
 
         {error && (
@@ -133,7 +135,7 @@ export default function Settings() {
 
         {success && (
           <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess(false)}>
-            Profile updated successfully!
+            {t('settings.profileUpdated')}
           </Alert>
         )}
 
@@ -142,7 +144,7 @@ export default function Settings() {
             <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
-                label="Full Name"
+                label={t('settings.fullName')}
                 value={formData.full_name}
                 onChange={handleChange('full_name')}
                 required
@@ -153,7 +155,7 @@ export default function Settings() {
             <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
-                label="Email"
+                label={t('settings.email')}
                 type="email"
                 value={formData.email}
                 onChange={handleChange('email')}
@@ -165,26 +167,26 @@ export default function Settings() {
             <Grid size={{ xs: 12 }}>
               <Divider sx={{ my: 2 }} />
               <Typography variant="subtitle2" sx={{ color: 'neutral.600', mb: 2 }}>
-                Change Password (leave blank to keep current password)
+                {t('settings.changePasswordHint')}
               </Typography>
             </Grid>
 
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
-                label="New Password"
+                label={t('settings.newPassword')}
                 type="password"
                 value={formData.password}
                 onChange={handleChange('password')}
                 variant="outlined"
-                helperText="Leave blank to keep current password"
+                helperText={t('settings.helperKeepPassword')}
               />
             </Grid>
 
             <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
-                label="Confirm New Password"
+                label={t('settings.confirmNewPassword')}
                 type="password"
                 value={formData.confirmPassword}
                 onChange={handleChange('confirmPassword')}
@@ -192,7 +194,7 @@ export default function Settings() {
                 error={formData.password !== formData.confirmPassword && formData.confirmPassword !== ''}
                 helperText={
                   formData.password !== formData.confirmPassword && formData.confirmPassword !== ''
-                    ? 'Passwords do not match'
+                    ? t('settings.passwordMismatch')
                     : ''
                 }
               />
@@ -206,14 +208,14 @@ export default function Settings() {
                   disabled={saving}
                   sx={{ bgcolor: 'primary.main' }}
                 >
-                  {saving ? 'Saving...' : 'Save Changes'}
+                  {saving ? t('common.saving') : t('settings.saveChanges')}
                 </Button>
                 <Button
                   variant="outlined"
                   onClick={fetchUserData}
                   disabled={saving}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
               </Stack>
             </Grid>
@@ -223,10 +225,10 @@ export default function Settings() {
 
       <Paper elevation={0} sx={{ p: 4, mt: 4, border: '1px solid', borderColor: 'neutral.200' }}>
         <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700', mb: 1 }}>
-          Delete account
+          {t('settings.deleteAccountTitle')}
         </Typography>
         <Typography variant="body2" sx={{ color: 'neutral.600', mb: 2 }}>
-          Permanently delete your account and all associated data. This cannot be undone.
+          {t('settings.deleteAccountBody')}
         </Typography>
         <Button
           variant="outlined"
@@ -234,21 +236,20 @@ export default function Settings() {
           onClick={() => setDeleteDialogOpen(true)}
           disabled={deleting}
         >
-          Delete my account
+          {t('settings.deleteMyAccount')}
         </Button>
       </Paper>
 
       <Dialog open={deleteDialogOpen} onClose={() => !deleting && setDeleteDialogOpen(false)}>
-        <DialogTitle>Delete account?</DialogTitle>
+        <DialogTitle>{t('settings.deleteConfirmTitle')}</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            This will permanently delete your account and all your data (study sets, progress, classes, etc.).
-            This action cannot be undone.
+            {t('settings.deleteConfirmBody')}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteDialogOpen(false)} disabled={deleting}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             color="error"
@@ -258,14 +259,14 @@ export default function Settings() {
               try {
                 await deleteAccount()
               } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to delete account')
+                setError(err instanceof Error ? err.message : t('settings.deleteFailed'))
                 setDeleting(false)
                 setDeleteDialogOpen(false)
               }
             }}
             disabled={deleting}
           >
-            {deleting ? 'Deleting...' : 'Delete account'}
+            {deleting ? t('settings.deleting') : t('settings.deleteAccount')}
           </Button>
         </DialogActions>
       </Dialog>

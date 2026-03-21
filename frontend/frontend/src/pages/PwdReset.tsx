@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Button,
@@ -31,6 +32,7 @@ interface ForgotPwdProps {
 type Step = 'email' | 'success';
 
 const ForgotPwdPage: React.FC<ForgotPwdProps> = () => {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const [email, setEmail] = useState('');
     const [step, setStep] = useState<Step>('email');
@@ -49,13 +51,13 @@ const ForgotPwdPage: React.FC<ForgotPwdProps> = () => {
         try {
             await new Promise(resolve => setTimeout(resolve, 1500));
             if (!email || !email.includes('@')) {
-                throw new Error('Please enter a valid email address!');
+                throw new Error(t('pwdReset.invalidEmail'));
             }
 
             setStep('success');
         }
         catch (err) {
-            setError(err instanceof Error ? err.message : "Something went wrong!!!");
+            setError(err instanceof Error ? err.message : t('pwdReset.genericError'));
         }
         finally {
             setLoading(false);
@@ -85,7 +87,7 @@ const ForgotPwdPage: React.FC<ForgotPwdProps> = () => {
                         onClick={handleToLogin}
                         sx={{ alignSelf: 'flex-start', mb: 2}}
                     >
-                        Back to login
+                        {t('pwdReset.backToLogin')}
                     </Button>
 
                     <Typography 
@@ -94,7 +96,7 @@ const ForgotPwdPage: React.FC<ForgotPwdProps> = () => {
                         gutterBottom fontWeight="bold"
                         align='center'
                         >
-                            Forgot password?
+                            {t('pwdReset.title')}
                     </Typography>
 
                     <Typography
@@ -104,8 +106,8 @@ const ForgotPwdPage: React.FC<ForgotPwdProps> = () => {
                         sx={{ mb:3 }}
                         >
                             {step === 'email'
-                                ? "Enter your email address and we will send you instructions to reset your password"
-                                : "Check your email for further instructions"
+                                ? t('pwdReset.hintEmail')
+                                : t('pwdReset.hintSuccess')
                             }
                     </Typography>
 
@@ -122,7 +124,7 @@ const ForgotPwdPage: React.FC<ForgotPwdProps> = () => {
                                 required
                                 fullWidth
                                 id='email'
-                                label="Email address"
+                                label={t('pwdReset.emailLabel')}
                                 name='email'
                                 autoComplete='email'
                                 autoFocus
@@ -139,13 +141,13 @@ const ForgotPwdPage: React.FC<ForgotPwdProps> = () => {
                                 disabled={loading}
                                 sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.300' } }}
                             >
-                                {loading ? <CircularProgress size={24} /> : "Send reset instructions"}
+                                {loading ? <CircularProgress size={24} /> : t('pwdReset.sendInstructions')}
                             </Button>
                         </Box>
                     ) : (
                         <Box sx={{ mt:2, width: '100%', textAlign: 'center'}}>
                             <Alert severity='success' sx={{ width: '100%', mb:3 }}>
-                                Password reset instrucitons have been sent to {email}
+                                {t('pwdReset.successSent', { email })}
                             </Alert>
                             <Button
                                 fullWidth
@@ -153,7 +155,7 @@ const ForgotPwdPage: React.FC<ForgotPwdProps> = () => {
                                 onClick={handleReset}
                                 sx={{ mb:2 }}
                             >
-                                Try another email
+                                {t('pwdReset.tryAnother')}
                             </Button>
                         </Box>
                     )}
@@ -163,7 +165,7 @@ const ForgotPwdPage: React.FC<ForgotPwdProps> = () => {
                             variant='body2'
                             color='text.secondary'
                         >
-                            Remember your password?{' '}
+                            {t('pwdReset.rememberPassword')}{' '}
                             <Link
                                 component='button'
                                 type='button'
@@ -171,7 +173,7 @@ const ForgotPwdPage: React.FC<ForgotPwdProps> = () => {
                                 onClick={handleToLogin}
                                 sx={{ fontWeight: 'bold', textDecoration: 'none'}}
                             >
-                                Back to Login
+                                {t('pwdReset.backToLoginLink')}
                             </Link>
                         </Typography>
                     </Box>
