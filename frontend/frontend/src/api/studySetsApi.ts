@@ -542,6 +542,10 @@ export interface Recommendation {
   reason: string;
   difficulty: string;
   set_id: number;
+  /** When true, `topic` is a subject line (translate). When false/omitted, `topic` is a study set title (show as-is). */
+  topicIsSubject?: boolean;
+  reasonKey?: string;
+  reasonParams?: Record<string, unknown>;
 }
 
 export interface LeaderboardEntry {
@@ -555,20 +559,22 @@ export interface LeaderboardResponse {
   current_user_rank: LeaderboardEntry | null;
 }
 
-export interface Badge {
+export interface StreakBadge {
   name: string;
   icon: string;
+  badge_id?: string;
 }
 
 export interface NextBadge {
   name: string;
   progress: number;
   target: number;
+  badge_id?: string;
 }
 
 export interface StreaksResponse {
   streak: number;
-  badges: Badge[];
+  badges: StreakBadge[];
   next_badge: NextBadge | null;
 }
 
@@ -687,6 +693,9 @@ export interface NextRecommendation {
   topic: string | null;
   difficulty: string | null;
   reason: string;
+  topicIsSubject?: boolean;
+  reasonKey?: string;
+  reasonParams?: Record<string, unknown>;
 }
 
 export async function getNextRecommendation(): Promise<NextRecommendation> {
@@ -927,18 +936,21 @@ export async function deleteQuestion(setId: number, questionId: number): Promise
   }
 }
 
-export interface Badge {
+export interface GamificationBadge {
+  badge_id?: string;
   name: string;
   icon: string;
   description: string;
   earned: boolean;
   progress?: number;
   target?: number;
+  /** Dynamic values for translating `earnedDesc` (e.g. count) */
+  i18n_params?: Record<string, number | string>;
 }
 
 export interface BadgesResponse {
-  earned_badges: Badge[];
-  available_badges: Badge[];
+  earned_badges: GamificationBadge[];
+  available_badges: GamificationBadge[];
 }
 
 export interface PointsBreakdown {

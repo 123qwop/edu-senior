@@ -18,11 +18,13 @@ import AIRecommendations from './pages/AIRecommendations';
 import Gamification from './pages/Gamification';
 import Settings from './pages/Settings';
 import theme from './theme';
+import LanguageSwitcher from './components/LanguageSwitcher';
 
 export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
+      <LanguageSwitcher />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
