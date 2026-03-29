@@ -12,23 +12,46 @@ export default function Header() {
       elevation={0}
       sx={{ bgcolor: 'primary.main', color: 'neutral.50', borderRadius: 0 }}
     >
-      <Toolbar sx={{ width: '100%', maxWidth: 1200, mx: 'auto' }}>
-        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ flexGrow: 1 }}>
+      <Toolbar
+        sx={{
+          width: '100%',
+          maxWidth: 1200,
+          mx: 'auto',
+          // Reserve space for fixed LanguageSwitcher (App.tsx) so it does not cover Sign up / Login
+          pr: { xs: 20, sm: 28, md: 38 },
+          boxSizing: 'border-box',
+        }}
+      >
+        <Link
+          component={RouterLink}
+          to="/"
+          underline="none"
+          aria-label={t('nav.home')}
+          sx={{
+            flexGrow: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 1.5,
+            color: 'inherit',
+          }}
+        >
           <Box
             component="img"
             src={logo}
-            alt="Nova Edu logo"
-            sx={{ width: 32, height: 32, borderRadius: 1 }}
+            alt=""
+            sx={{ width: 32, height: 32, borderRadius: 1, flexShrink: 0 }}
           />
           <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.50' }}>
             {t('header.brand')}
           </Typography>
-        </Stack>
+        </Link>
         <Stack
           direction="row"
-          spacing={{ xs: 1, sm: 3 }}
+          spacing={{ xs: 1, sm: 2 }}
           alignItems="center"
-          sx={{ display: { xs: 'none', md: 'flex' } }}
+          sx={{ display: { xs: 'none', md: 'flex' }, flexShrink: 0, mr: { md: 1 } }}
         >
           <Link
             component={RouterLink}

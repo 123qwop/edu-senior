@@ -23,9 +23,16 @@ import {
   Chip,
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
-import CheckCircleIcon from '@mui/icons-material/CheckCircle'
-import CancelIcon from '@mui/icons-material/Cancel'
-import { getStudySet, getStudySetQuestions, recordProgress, type Question } from '../api/studySetsApi'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
+import {
+  getStudySet,
+  getStudySetQuestions,
+  recordProgress,
+  getAiStatus,
+  aiHint,
+  aiExplain,
+  type Question,
+} from '../api/studySetsApi'
 import { getUserRole, getMe } from '../api/authApi'
 
 export default function Practice() {
@@ -42,6 +49,17 @@ export default function Practice() {
   const [error, setError] = useState<string | null>(null)
   const [flashcardFlipped, setFlashcardFlipped] = useState<{ [key: number]: boolean }>({})
   const [userId, setUserId] = useState<number | null>(null)
+  const [aiEnabled, setAiEnabled] = useState(false)
+  const [aiDialogOpen, setAiDialogOpen] = useState(false)
+  const [aiDialogTitle, setAiDialogTitle] = useState('')
+  const [aiDialogText, setAiDialogText] = useState('')
+  const [aiBusy, setAiBusy] = useState(false)
+
+  useEffect(() => {
+    getAiStatus()
+      .then((s) => setAiEnabled(!!s.enabled))
+      .catch(() => setAiEnabled(false))
+  }, [])
 
   useEffect(() => {
     if (getUserRole() !== 'student') {
@@ -112,6 +130,89 @@ export default function Practice() {
 
   const handleFlipFlashcard = (questionId: number) => {
     setFlashcardFlipped({ ...flashcardFlipped, [questionId]: !flashcardFlipped[questionId] })
+  }
+
+  const buildQuestionPrompt = (q: Question): string => {
+    if (q.type === 'flashcard') {
+      return `Flashcard\nTerm: ${q.term ?? ''}\nDefinition: ${q.definition ?? ''}`
+    }
+    let base = q.content || ''
+    if (q.type === 'multiple_choice' && q.options?.length) {
+      base += '\nOptions:\n' + q.options.map((o, i) => `${i}. ${o}`).join('\n')
+    }
+    return base
+  }
+
+  const buildUserAnswerLabel = (q: Question): string => {
+    const raw = answers[q.id]
+    if (raw === undefined || raw === '') return ''
+    if (q.type === 'multiple_choice' && q.options) {
+      const idx = parseInt(String(raw), 10)
+      if (!Number.isNaN(idx) && q.options[idx] !== undefined) return q.options[idx]
+    }
+    return String(raw)
+  }
+
+  const resolveCorrectAnswerLabel = (q: Question): string | undefined => {
+    if (!q.correct_answer) return undefined
+    if (q.type === 'multiple_choice' && q.options) {
+      const idx = parseInt(String(q.correct_answer), 10)
+      if (!Number.isNaN(idx) && q.options[idx] !== undefined) return q.options[idx]
+    }
+    return q.correct_answer
+  }
+
+  const handleAiHint = async () => {
+    const q = questions[currentQuestionIndex]
+    if (!q) return
+    setAiDialogOpen(true)
+    setAiDialogTitle(t('practice.aiDialogHintTitle'))
+    setAiDialogText(t('practice.aiLoading'))
+    setAiBusy(true)
+    try {
+      const { text } = await aiHint({
+        question: buildQuestionPrompt(q),
+        topic: studySet?.subject,
+      })
+      setAiDialogText(text)
+    } catch (e) {
+      setAiDialogText(e instanceof Error ? e.message : t('practice.aiError'))
+    } finally {
+      setAiBusy(false)
+    }
+  }
+
+  const handleAiExplain = async () => {
+    const q = questions[currentQuestionIndex]
+    if (!q) return
+    if (q.type !== 'flashcard') {
+      const ua = buildUserAnswerLabel(q)
+      if (!ua) {
+        alert(t('practice.aiNeedAnswer'))
+        return
+      }
+    }
+    setAiDialogOpen(true)
+    setAiDialogTitle(t('practice.aiDialogExplainTitle'))
+    setAiDialogText(t('practice.aiLoading'))
+    setAiBusy(true)
+    try {
+      const userAnswer =
+        q.type === 'flashcard'
+          ? 'Flashcard practice: reviewing term and definition.'
+          : buildUserAnswerLabel(q)!
+      const { text } = await aiExplain({
+        question: buildQuestionPrompt(q),
+        user_answer: userAnswer,
+        correct_answer: resolveCorrectAnswerLabel(q),
+        subject: studySet?.subject,
+      })
+      setAiDialogText(text)
+    } catch (e) {
+      setAiDialogText(e instanceof Error ? e.message : t('practice.aiError'))
+    } finally {
+      setAiBusy(false)
+    }
   }
 
   const renderQuestion = (question: Question) => {
@@ -309,6 +410,28 @@ export default function Practice() {
         {renderQuestion(currentQuestion)}
       </Paper>
 
+      {aiEnabled && (
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3 }}>
+          <Button
+            variant="outlined"
+            color="secondary"
+            startIcon={<AutoAwesomeIcon />}
+            onClick={handleAiHint}
+            disabled={aiBusy}
+          >
+            {t('practice.aiHint')}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<AutoAwesomeIcon />}
+            onClick={handleAiExplain}
+            disabled={aiBusy}
+          >
+            {t('practice.aiExplain')}
+          </Button>
+        </Stack>
+      )}
+
       <Stack direction="row" spacing={2} justifyContent="space-between">
         <Button
           variant="outlined"
@@ -326,6 +449,23 @@ export default function Practice() {
           {currentQuestionIndex === questions.length - 1 ? t('practice.submit') : t('practice.next')}
         </Button>
       </Stack>
+
+      <Dialog
+        open={aiDialogOpen}
+        onClose={() => !aiBusy && setAiDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>{aiDialogTitle}</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ whiteSpace: 'pre-wrap' }}>{aiDialogText}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button disabled={aiBusy} onClick={() => setAiDialogOpen(false)}>
+            {t('common.cancel')}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={showResults} maxWidth="sm" fullWidth>
         <DialogTitle>{t('practice.results')}</DialogTitle>

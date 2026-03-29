@@ -90,6 +90,10 @@ export default function Dashboard() {
 
   const fetchDashboardData = async () => {
     try {
+      if (userRole === 'admin') {
+        setLoading(false)
+        return
+      }
       setLoading(true)
       const [statsData, assignmentsData, recommendationsData, nextRecData, leaderboardDataResult, streaksDataResult] = await Promise.all([
         getDashboardStats(),
@@ -175,6 +179,24 @@ export default function Dashboard() {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
         <CircularProgress />
+      </Box>
+    )
+  }
+
+  if (userRole === 'admin') {
+    return (
+      <Box sx={{ py: 4, px: 2, maxWidth: 720 }}>
+        <Paper elevation={0} sx={{ p: 4, border: '1px solid', borderColor: 'neutral.200' }}>
+          <Typography variant="h4" sx={{ fontWeight: 700, mb: 1, color: 'neutral.700' }}>
+            {t('admin.dashboardWelcome', { name: firstName })}
+          </Typography>
+          <Typography variant="body2" sx={{ color: 'neutral.600', mb: 3 }}>
+            {t('admin.dashboardSubtitle')}
+          </Typography>
+          <Button variant="contained" component={RouterLink} to="/dashboard/admin" sx={{ bgcolor: 'primary.main' }}>
+            {t('admin.openPortal')}
+          </Button>
+        </Paper>
       </Box>
     )
   }

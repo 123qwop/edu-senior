@@ -138,31 +138,31 @@
   },
   "header": {
     "brand": "Nova Edu",
-    "signUp": "Sign Up",
+    "signUp": "Регистрация",
     "logoAlt": "Логотип Nova Edu"
   },
   "footer": {
-    "copyright": "© 2025 AED Platform",
-    "contacts": "Contacts",
-    "privacy": "Privacy",
-    "terms": "Terms of Service"
+    "copyright": "© 2025 Платформа AED",
+    "contacts": "Контакты",
+    "privacy": "Конфиденциальность",
+    "terms": "Условия использования"
   },
   "landing": {
-    "heroTitle": "Learn Smarter, Not Longer",
-    "heroSubtitle": "Personalized AI-powered study platform to help students master topics efficiently and stay motivated. With Nova Edu, you can save your time and efforts.",
-    "getStarted": "Get Started",
-    "featuresTitle": "Features",
-    "howItWorks": "How it works",
-    "feature1Title": "01 Personalized Learning",
-    "feature1Desc": "Get personalized suggestions",
-    "feature2Title": "02 Track Progress",
-    "feature2Desc": "Analytics & Stats",
-    "feature3Title": "03 Gamified Motivation",
-    "feature3Desc": "Get trophies and be at the top of the leaderboard",
-    "step1": "Create an account",
-    "step2": "Practice & review",
-    "step3": "Improve with AI",
-    "illustrationAlt": "Student working illustration"
+    "heroTitle": "Учитесь умнее, а не дольше",
+    "heroSubtitle": "Персонализированная платформа для учёбы с ИИ: помогает эффективно осваивать темы и оставаться мотивированным. С Nova Edu вы экономите время и силы.",
+    "getStarted": "Начать",
+    "featuresTitle": "Возможности",
+    "howItWorks": "Как это работает",
+    "feature1Title": "01 Персонализированное обучение",
+    "feature1Desc": "Персональные рекомендации и подбор материалов",
+    "feature2Title": "02 Отслеживание прогресса",
+    "feature2Desc": "Аналитика и статистика успеваемости",
+    "feature3Title": "03 Геймификация",
+    "feature3Desc": "Награды, достижения и таблица лидеров",
+    "step1": "Создайте аккаунт",
+    "step2": "Практика и повторение",
+    "step3": "Улучшайте результаты с ИИ",
+    "illustrationAlt": "Иллюстрация: студент за учёбой"
   },
   "pwdReset": {
     "backToLogin": "Back to login",
@@ -417,8 +417,16 @@
     "false": "False",
     "placeholderShort": "Type your answer here...",
     "placeholderProblem": "Show your work and solution...",
-    "loadFailed": "Failed to load study set",
-    "submitFailed": "Failed to submit answers"
+    "loadFailed": "Не удалось загрузить набор",
+    "submitFailed": "Не удалось отправить ответы",
+    "aiHint": "Подсказка ИИ",
+    "aiExplain": "Объяснение (ИИ)",
+    "aiDialogHintTitle": "Подсказка",
+    "aiDialogExplainTitle": "Объяснение",
+    "aiLoading": "Думаю…",
+    "aiError": "Ошибка запроса к ИИ",
+    "aiNeedAnswer": "Сначала выберите или введите ответ.",
+    "aiNotConfigured": "ИИ не настроен на сервере (добавьте GEMINI_API_KEY)."
   },
   "classes": {
     "title": "Мои классы",
@@ -517,8 +525,31 @@
       "createFailed": "Не удалось создать класс"
     }
   },
+  "admin": {
+    "portalTitle": "Панель администратора",
+    "users": "Пользователи",
+    "studySets": "Все наборы",
+    "colEmail": "Email",
+    "colName": "Имя",
+    "colRole": "Роль",
+    "colTitle": "Название",
+    "colSubject": "Предмет",
+    "colType": "Тип",
+    "colCreator": "Автор",
+    "actions": "Действия",
+    "delete": "Удалить",
+    "deleteUserTitle": "Удалить пользователя?",
+    "deleteUserBody": "Аккаунт будет удалён безвозвратно. Может не сработать, если есть связанные данные.",
+    "deleteSetTitle": "Удалить набор?",
+    "deleteSetBody": "Набор и вопросы будут удалены для всех пользователей.",
+    "loadFailed": "Не удалось загрузить данные админки",
+    "dashboardWelcome": "Добро пожаловать, {{name}}",
+    "dashboardSubtitle": "Управление пользователями и модерация наборов.",
+    "openPortal": "Открыть панель администратора"
+  },
   "nav": {
     "home": "Главная",
+    "admin": "Админ",
     "studySets": "Наборы",
     "myClasses": "Мои классы",
     "offlineDownloads": "Офлайн-загрузки",

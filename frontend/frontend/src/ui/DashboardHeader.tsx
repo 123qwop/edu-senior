@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { AppBar, Box, Stack, Toolbar, Typography } from '@mui/material'
+import { AppBar, Box, Link, Stack, Toolbar, Typography } from '@mui/material'
 import PersonIcon from '@mui/icons-material/Person'
 import { useTranslation } from 'react-i18next'
+import { Link as RouterLink } from 'react-router-dom'
 import logo from '../assets/logo.png'
 import { getMe } from '../api/authApi'
 
@@ -37,13 +38,28 @@ export default function DashboardHeader() {
       elevation={0}
       sx={{ bgcolor: 'primary.main', color: 'neutral.50', borderRadius: 0, width: '100%' }}
     >
-      <Toolbar sx={{ px: 4 }}>
-        <Box
-          component="img"
-          src={logo}
-          alt={t('header.logoAlt')}
-          sx={{ width: 32, height: 32, borderRadius: 1 }}
-        />
+      <Toolbar
+        sx={{
+          pl: 4,
+          // Match Header.tsx: reserve space for fixed LanguageSwitcher (App.tsx) so it does not cover the user block
+          pr: { xs: 20, sm: 28, md: 38 },
+          boxSizing: 'border-box',
+        }}
+      >
+        <Link
+          component={RouterLink}
+          to="/"
+          underline="none"
+          aria-label={t('nav.home')}
+          sx={{ display: 'inline-flex', lineHeight: 0, borderRadius: 1 }}
+        >
+          <Box
+            component="img"
+            src={logo}
+            alt=""
+            sx={{ width: 32, height: 32, borderRadius: 1, display: 'block' }}
+          />
+        </Link>
         <Box sx={{ flexGrow: 1 }} />
         <Stack direction="row" spacing={2} alignItems="center">
           <Stack direction="row" spacing={1} alignItems="center" sx={{ color: 'white' }}>

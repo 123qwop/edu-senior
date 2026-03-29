@@ -17,6 +17,8 @@ import Progress from './pages/Progress';
 import AIRecommendations from './pages/AIRecommendations';
 import Gamification from './pages/Gamification';
 import Settings from './pages/Settings';
+import AdminPortal from './pages/AdminPortal';
+import AdminRoute from './components/AdminRoute';
 import theme from './theme';
 import LanguageSwitcher from './components/LanguageSwitcher';
 
@@ -42,6 +44,14 @@ export default function App() {
           <Route path="/dashboard/ai-recommendations" element={<AIRecommendations />} />
           <Route path="/dashboard/gamification" element={<Gamification />} />
           <Route path="/dashboard/settings" element={<Settings />} />
+          <Route
+            path="/dashboard/admin"
+            element={
+              <AdminRoute>
+                <AdminPortal />
+              </AdminRoute>
+            }
+          />
           <Route path="/statistics" element={<Statistics />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

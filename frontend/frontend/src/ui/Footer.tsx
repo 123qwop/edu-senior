@@ -1,4 +1,5 @@
 import { Box, Container, Link, Stack, Typography } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import logo from '../assets/logo.png';
 
@@ -14,12 +15,20 @@ export default function Footer() {
           alignItems="center"
         >
           <Stack direction="row" spacing={1.5} alignItems="center">
-            <Box
-              component="img"
-              src={logo}
-              alt="Nova Edu logo"
-              sx={{ width: 28, height: 28, borderRadius: 1 }}
-            />
+            <Link
+              component={RouterLink}
+              to="/"
+              underline="none"
+              aria-label={t('nav.home')}
+              sx={{ display: 'inline-flex', lineHeight: 0, borderRadius: 1 }}
+            >
+              <Box
+                component="img"
+                src={logo}
+                alt=""
+                sx={{ width: 28, height: 28, borderRadius: 1, display: 'block' }}
+              />
+            </Link>
             <Typography variant="body2" sx={{ color: 'neutral.500' }}>
               {t('footer.copyright')}
             </Typography>

@@ -138,31 +138,31 @@
   },
   "header": {
     "brand": "Nova Edu",
-    "signUp": "Sign Up",
+    "signUp": "Тіркелу",
     "logoAlt": "Nova Edu логотипі"
   },
   "footer": {
-    "copyright": "© 2025 AED Platform",
-    "contacts": "Contacts",
-    "privacy": "Privacy",
-    "terms": "Terms of Service"
+    "copyright": "© 2025 AED платформасы",
+    "contacts": "Байланыс",
+    "privacy": "Құпиялылық",
+    "terms": "Қызмет көрсету шарттары"
   },
   "landing": {
-    "heroTitle": "Learn Smarter, Not Longer",
-    "heroSubtitle": "Personalized AI-powered study platform to help students master topics efficiently and stay motivated. With Nova Edu, you can save your time and efforts.",
-    "getStarted": "Get Started",
-    "featuresTitle": "Features",
-    "howItWorks": "How it works",
-    "feature1Title": "01 Personalized Learning",
-    "feature1Desc": "Get personalized suggestions",
-    "feature2Title": "02 Track Progress",
-    "feature2Desc": "Analytics & Stats",
-    "feature3Title": "03 Gamified Motivation",
-    "feature3Desc": "Get trophies and be at the top of the leaderboard",
-    "step1": "Create an account",
-    "step2": "Practice & review",
-    "step3": "Improve with AI",
-    "illustrationAlt": "Student working illustration"
+    "heroTitle": "Ұзақ емес, ақылмен оқыңыз",
+    "heroSubtitle": "Тақырыптарды тиімді меңгеруге және мотивацияны сақтауға көмектесетін жекелендірілген жасанды интеллект платформасы. Nova Edu-да уақыт пен күшіңізді үнемдейсіз.",
+    "getStarted": "Бастау",
+    "featuresTitle": "Мүмкіндіктер",
+    "howItWorks": "Қалай жұмыс істейді",
+    "feature1Title": "01 Жекелендірілген оқу",
+    "feature1Desc": "Жеке ұсыныстар мен материалдар",
+    "feature2Title": "02 Прогресті бақылау",
+    "feature2Desc": "Талдау және сәттілік статистикасы",
+    "feature3Title": "03 Ойындық элементтер",
+    "feature3Desc": "Жүлделер, жетістіктер және көшбасшылар кестесі",
+    "step1": "Аккаунт жасаңыз",
+    "step2": "Практика және қайталау",
+    "step3": "ЖИ көмегімен нәтижені жақсартыңыз",
+    "illustrationAlt": "Студент оқып жатқан сурет"
   },
   "pwdReset": {
     "backToLogin": "Back to login",
@@ -417,8 +417,16 @@
     "false": "False",
     "placeholderShort": "Type your answer here...",
     "placeholderProblem": "Show your work and solution...",
-    "loadFailed": "Failed to load study set",
-    "submitFailed": "Failed to submit answers"
+    "loadFailed": "Жинақты жүктеу сәтсіз",
+    "submitFailed": "Жауаптарды жіберу сәтсіз",
+    "aiHint": "ЖИ көмегі",
+    "aiExplain": "ЖИ түсіндіруі",
+    "aiDialogHintTitle": "Көмек",
+    "aiDialogExplainTitle": "Түсіндіру",
+    "aiLoading": "Ойлануда…",
+    "aiError": "ЖИ сұрауы сәтсіз",
+    "aiNeedAnswer": "Алдымен жауапты таңдаңыз немесе жазыңыз.",
+    "aiNotConfigured": "Серверде ЖИ қосылмаған (GEMINI_API_KEY қосыңыз)."
   },
   "classes": {
     "title": "Менің сыныптарым",
@@ -517,8 +525,31 @@
       "createFailed": "Сынып жасау сәтсіз"
     }
   },
+  "admin": {
+    "portalTitle": "Әкімші панелі",
+    "users": "Пайдаланушылар",
+    "studySets": "Барлық жинақтар",
+    "colEmail": "Email",
+    "colName": "Аты",
+    "colRole": "Рөлі",
+    "colTitle": "Атауы",
+    "colSubject": "Пән",
+    "colType": "Түрі",
+    "colCreator": "Автор",
+    "actions": "Әрекеттер",
+    "delete": "Жою",
+    "deleteUserTitle": "Пайдаланушыны жою керек пе?",
+    "deleteUserBody": "Аккаунт түпкілікті жойылады. Байланысты деректер болса, сәтсіз болуы мүмкін.",
+    "deleteSetTitle": "Жинақты жою керек пе?",
+    "deleteSetBody": "Жинақ барлық пайдаланушылар үшін жойылады.",
+    "loadFailed": "Әкімші деректерін жүктеу сәтсіз",
+    "dashboardWelcome": "Қош келдіңіз, {{name}}",
+    "dashboardSubtitle": "Пайдаланушыларды басқару және жинақтарды модерациялау.",
+    "openPortal": "Әкімші панелін ашу"
+  },
   "nav": {
     "home": "Басты бет",
+    "admin": "Әкімші",
     "studySets": "Оқу жиындары",
     "myClasses": "Менің сыныптарым",
     "offlineDownloads": "Офлайн жүктеулер",
