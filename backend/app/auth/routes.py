@@ -64,7 +64,9 @@ def register(payload: schemas.UserCreate, db: Session = Depends(get_db)):
 
     # Ensure role has a default value
     role_name = payload.role if payload.role else "student"
-    
+    if role_name.lower() == "admin":
+        raise HTTPException(status_code=400, detail="Cannot register as admin")
+
     role_obj = db.query(models.Role).filter(models.Role.name == role_name).first()
     if not role_obj:
         role_obj = models.Role(name=role_name)
