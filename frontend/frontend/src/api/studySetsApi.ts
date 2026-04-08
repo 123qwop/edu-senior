@@ -1051,3 +1051,95 @@ export async function getProgress(): Promise<ProgressResponse> {
   }
 }
 
+/** Gemini AI (requires GEMINI_API_KEY on backend) */
+export async function getAiStatus(): Promise<{ enabled: boolean }> {
+  const response = await fetch(`${API_URL}/study-sets/ai/status`, {
+    credentials: 'include',
+    headers: getAuthHeaders(),
+  });
+  if (!response.ok) {
+    return { enabled: false };
+  }
+  return response.json();
+}
+
+export async function aiHint(body: { question: string; topic?: string }): Promise<{ text: string }> {
+  const response = await fetch(`${API_URL}/study-sets/ai/hint`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      typeof errorData.detail === 'string' ? errorData.detail : 'AI hint failed'
+    );
+  }
+  return response.json();
+}
+
+export async function aiExplain(body: {
+  question: string;
+  user_answer: string;
+  correct_answer?: string;
+  subject?: string;
+}): Promise<{ text: string }> {
+  const response = await fetch(`${API_URL}/study-sets/ai/explain`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      typeof errorData.detail === 'string' ? errorData.detail : 'AI explanation failed'
+    );
+  }
+  return response.json();
+}
+
+export async function aiFeedback(body: {
+  question: string;
+  user_answer: string;
+  is_correct: boolean;
+  correct_answer?: string;
+  topic?: string;
+}): Promise<{ text: string }> {
+  const response = await fetch(`${API_URL}/study-sets/ai/feedback`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      typeof errorData.detail === 'string' ? errorData.detail : 'AI feedback failed'
+    );
+  }
+  return response.json();
+}
+
+export async function aiGenerateQuestions(body: {
+  topic: string;
+  difficulty?: string;
+  count?: number;
+  question_type?: string;
+}): Promise<{ text: string }> {
+  const response = await fetch(`${API_URL}/study-sets/ai/generate-questions`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      typeof errorData.detail === 'string' ? errorData.detail : 'AI question generation failed'
+    );
+  }
+  return response.json();
+}
+

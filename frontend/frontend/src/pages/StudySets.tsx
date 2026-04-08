@@ -208,21 +208,39 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
         </Stack>
       </CardContent>
 
-      {/* Actions */}
+      {/* Actions: teacher = edit buttons row, then icon row; student = primary left, icons right */}
       <Box
         sx={{
-          p: 2,
-          pt: 0,
+          px: { xs: 2, sm: 2.5 },
+          py: 2,
+          pt: 1.5,
           borderTop: '1px solid',
           borderColor: 'neutral.200',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
+          ...(isTeacherView
+            ? {
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'stretch',
+                gap: 1.25,
+              }
+            : {
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 1,
+                flexWrap: 'wrap',
+              }),
         }}
       >
-        <Stack direction="row" spacing={1}>
-          {isTeacherView ? (
-            <>
+        {isTeacherView ? (
+          <>
+            <Stack
+              direction="row"
+              spacing={1.5}
+              flexWrap="wrap"
+              useFlexGap
+              sx={{ pl: 0.5, pr: 1, alignItems: 'center' }}
+            >
               <Button
                 variant="contained"
                 size="small"
@@ -240,6 +258,15 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
               >
                 {t('studySets.editContent')}
               </Button>
+            </Stack>
+            <Stack
+              direction="row"
+              spacing={0.5}
+              useFlexGap
+              flexWrap="wrap"
+              alignItems="center"
+              sx={{ pl: 0.5 }}
+            >
               <IconButton
                 size="small"
                 sx={{ color: 'neutral.500' }}
@@ -262,16 +289,41 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
               >
                 <AnalyticsIcon fontSize="small" />
               </IconButton>
-            </>
-          ) : (
-            <>
+              <IconButton
+                size="small"
+                sx={{ color: 'neutral.500' }}
+                onClick={() => onView?.(studySet)}
+                title={t('studySets.viewDetails')}
+              >
+                <VisibilityIcon fontSize="small" />
+              </IconButton>
+              <IconButton size="small" onClick={handleClick} sx={{ color: 'neutral.500' }}>
+                <MoreVertIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+          </>
+        ) : (
+          <>
+            <Stack
+              direction="row"
+              spacing={1.5}
+              flexWrap="wrap"
+              useFlexGap
+              sx={{
+                minWidth: 0,
+                flex: '1 1 auto',
+                pl: 0.5,
+                pr: 1,
+                alignItems: 'center',
+              }}
+            >
               <Button
                 variant="contained"
                 size="small"
                 startIcon={<PlayArrowIcon />}
                 component={RouterLink}
                 to={`/dashboard/study-sets/${studySet.id}/practice`}
-                sx={{ bgcolor: 'primary.main' }}
+                sx={{ bgcolor: 'primary.main', whiteSpace: 'nowrap' }}
               >
                 {studySet.mastery !== null && studySet.mastery > 0 ? t('common.continue') : t('common.study')}
               </Button>
@@ -282,7 +334,7 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
                     size="small"
                     startIcon={<EditIcon />}
                     onClick={() => onEdit?.(studySet)}
-                    sx={{ borderColor: 'primary.main', color: 'primary.main' }}
+                    sx={{ borderColor: 'primary.main', color: 'primary.main', whiteSpace: 'nowrap' }}
                   >
                     {t('studySets.editDetails')}
                   </Button>
@@ -290,55 +342,53 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
                     variant="outlined"
                     size="small"
                     onClick={() => onEditContent?.(studySet)}
-                    sx={{ borderColor: 'primary.main', color: 'primary.main' }}
+                    sx={{ borderColor: 'primary.main', color: 'primary.main', whiteSpace: 'nowrap' }}
                   >
                     {t('studySets.editContent')}
                   </Button>
                 </>
               )}
-            </>
-          )}
-        </Stack>
+            </Stack>
 
-        <Stack direction="row" spacing={0.5}>
-          {!isTeacherView && (
-            <IconButton
-              size="small"
-              onClick={() => {
-                if (studySet.isDownloaded) {
-                  onRemoveDownload?.(studySet.id)
-                } else {
-                  onDownload?.(studySet.id)
-                }
-              }}
-              disabled={!isOnline && !studySet.isDownloaded}
-              title={studySet.isDownloaded ? t('studySets.removeDownload') : t('studySets.downloadOffline')}
-              sx={{ 
-                color: studySet.isDownloaded ? 'success.main' : 'neutral.500',
-                '&:disabled': { opacity: 0.5 }
-              }}
-            >
-              {isDownloading ? (
-                <CircularProgress size={20} />
-              ) : studySet.isDownloaded ? (
-                <DownloadIcon fontSize="small" />
-              ) : (
-                <CloudDownloadIcon fontSize="small" />
-              )}
-            </IconButton>
-          )}
-          <IconButton
-            size="small"
-            sx={{ color: 'neutral.500' }}
-            onClick={() => onView?.(studySet)}
-            title={t('studySets.viewDetails')}
-          >
-            <VisibilityIcon fontSize="small" />
-          </IconButton>
-          <IconButton size="small" onClick={handleClick} sx={{ color: 'neutral.500' }}>
-            <MoreVertIcon fontSize="small" />
-          </IconButton>
-        </Stack>
+            <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0, alignItems: 'center' }}>
+              <IconButton
+                size="small"
+                onClick={() => {
+                  if (studySet.isDownloaded) {
+                    onRemoveDownload?.(studySet.id)
+                  } else {
+                    onDownload?.(studySet.id)
+                  }
+                }}
+                disabled={!isOnline && !studySet.isDownloaded}
+                title={studySet.isDownloaded ? t('studySets.removeDownload') : t('studySets.downloadOffline')}
+                sx={{
+                  color: studySet.isDownloaded ? 'success.main' : 'neutral.500',
+                  '&:disabled': { opacity: 0.5 },
+                }}
+              >
+                {isDownloading ? (
+                  <CircularProgress size={20} />
+                ) : studySet.isDownloaded ? (
+                  <DownloadIcon fontSize="small" />
+                ) : (
+                  <CloudDownloadIcon fontSize="small" />
+                )}
+              </IconButton>
+              <IconButton
+                size="small"
+                sx={{ color: 'neutral.500' }}
+                onClick={() => onView?.(studySet)}
+                title={t('studySets.viewDetails')}
+              >
+                <VisibilityIcon fontSize="small" />
+              </IconButton>
+              <IconButton size="small" onClick={handleClick} sx={{ color: 'neutral.500' }}>
+                <MoreVertIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+          </>
+        )}
       </Box>
 
       {/* More Menu */}
@@ -391,17 +441,19 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
             {t('studySets.viewAnalytics')}
           </MenuItem>
         )}
-        <MenuItem
-          onClick={() => {
-            if (window.confirm(t('studySets.deleteConfirm'))) {
-              onDelete?.(studySet.id)
-            }
-            handleClose()
-          }}
-          sx={{ color: 'error.main' }}
-        >
-          {t('common.delete')}
-        </MenuItem>
+        {(isTeacherView || (userId !== null && studySet.creator_id === userId)) && (
+          <MenuItem
+            onClick={() => {
+              if (window.confirm(t('studySets.deleteConfirm'))) {
+                onDelete?.(studySet.id)
+              }
+              handleClose()
+            }}
+            sx={{ color: 'error.main' }}
+          >
+            {t('common.delete')}
+          </MenuItem>
+        )}
       </Menu>
     </Card>
   )

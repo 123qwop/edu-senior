@@ -114,6 +114,10 @@ export function isStudent(): boolean {
   return getUserRole() === 'student';
 }
 
+export function isAdmin(): boolean {
+  return getUserRole() === 'admin';
+}
+
 export interface UserUpdate {
   full_name?: string;
   email?: string;

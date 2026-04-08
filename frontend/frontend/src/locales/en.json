@@ -418,7 +418,15 @@
     "placeholderShort": "Type your answer here...",
     "placeholderProblem": "Show your work and solution...",
     "loadFailed": "Failed to load study set",
-    "submitFailed": "Failed to submit answers"
+    "submitFailed": "Failed to submit answers",
+    "aiHint": "AI hint",
+    "aiExplain": "Explain with AI",
+    "aiDialogHintTitle": "Hint",
+    "aiDialogExplainTitle": "Explanation",
+    "aiLoading": "Thinking…",
+    "aiError": "AI request failed",
+    "aiNeedAnswer": "Select or type an answer first to get an explanation.",
+    "aiNotConfigured": "AI is not enabled on the server (add GEMINI_API_KEY)."
   },
   "classes": {
     "title": "My Classes",
@@ -517,8 +525,31 @@
       "createFailed": "Failed to create class"
     }
   },
+  "admin": {
+    "portalTitle": "Admin portal",
+    "users": "Users",
+    "studySets": "All study sets",
+    "colEmail": "Email",
+    "colName": "Name",
+    "colRole": "Role",
+    "colTitle": "Title",
+    "colSubject": "Subject",
+    "colType": "Type",
+    "colCreator": "Creator",
+    "actions": "Actions",
+    "delete": "Delete",
+    "deleteUserTitle": "Delete user?",
+    "deleteUserBody": "This permanently removes the user account. This may fail if the user still has related data (classes, progress, etc.).",
+    "deleteSetTitle": "Delete study set?",
+    "deleteSetBody": "This permanently removes the study set and its questions for all users.",
+    "loadFailed": "Failed to load admin data",
+    "dashboardWelcome": "Welcome, {{name}}",
+    "dashboardSubtitle": "Manage users and moderate study sets.",
+    "openPortal": "Open admin portal"
+  },
   "nav": {
     "home": "Home",
+    "admin": "Admin",
     "studySets": "Study sets",
     "myClasses": "My classes",
     "offlineDownloads": "Offline Downloads",

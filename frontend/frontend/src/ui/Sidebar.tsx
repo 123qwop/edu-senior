@@ -10,7 +10,14 @@ import LightbulbIcon from '@mui/icons-material/Lightbulb'
 import EmojiEventsIcon from '@mui/icons-material/EmojiEvents'
 import SettingsIcon from '@mui/icons-material/Settings'
 import ClassIcon from '@mui/icons-material/Class'
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import { getUserRole, API_URL } from '../api/authApi'
+
+const adminNavigationItems = [
+  { labelKey: 'nav.home', path: '/dashboard', icon: HomeIcon },
+  { labelKey: 'nav.admin', path: '/dashboard/admin', icon: AdminPanelSettingsIcon },
+  { labelKey: 'nav.settings', path: '/dashboard/settings', icon: SettingsIcon },
+] as const
 
 // Student navigation items (keys map to src/locales/*.json under "nav")
 const studentNavigationItems = [
@@ -37,7 +44,12 @@ export default function Sidebar() {
   const { t } = useTranslation()
   const location = useLocation()
   const userRole = getUserRole()
-  const navigationItems = userRole === 'teacher' ? teacherNavigationItems : studentNavigationItems
+  const navigationItems =
+    userRole === 'admin'
+      ? adminNavigationItems
+      : userRole === 'teacher'
+        ? teacherNavigationItems
+        : studentNavigationItems
 
   return (
     <Paper
@@ -56,7 +68,10 @@ export default function Sidebar() {
         <List component="nav" sx={{ px: 2 }}>
           {navigationItems.map((item) => {
             const Icon = item.icon
-            const isActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/')
+            const isActive =
+              item.path === '/dashboard'
+                ? location.pathname === '/dashboard'
+                : location.pathname === item.path || location.pathname.startsWith(item.path + '/')
 
             return (
               <ListItemButton

@@ -58,3 +58,9 @@ def require_role(role: str):
         return user
 
     return role_checker
+
+
+def require_admin(user: User = Depends(get_current_user)) -> User:
+    if user.role is None or user.role.name.lower() != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
+    return user
