@@ -1,0 +1,128 @@
+{
+  "title": "Quadratic Equations",
+  "subject": "Mathematics",
+  "level": "Grade 11",
+  "description": "Practice solving quadratic equations by factoring, completing the square, and using the quadratic formula. Includes discriminant reasoning and simple word problems.",
+  "items": [
+    {
+      "question": "Solve for $x$: $x^2 - 5x + 6 = 0$.",
+      "type": "multiple_choice",
+      "options": ["$x = 2$ or $x = 3$", "$x = -2$ or $x = -3$", "$x = 1$ or $x = 6$", "$x = -1$ or $x = -6$"],
+      "answer": "$x = 2$ or $x = 3$",
+      "explanation": "Factor: $x^2 - 5x + 6 = (x - 2)(x - 3)$. Set each factor to zero: $x - 2 = 0 \\Rightarrow x = 2$, and $x - 3 = 0 \\Rightarrow x = 3$.",
+      "difficulty": "easy"
+    },
+    {
+      "question": "What are the roots of $2x^2 - 8x = 0$?",
+      "type": "multiple_choice",
+      "options": ["$x = 0$ or $x = 4$", "$x = 2$ or $x = -2$", "$x = 0$ or $x = -4$", "$x = 4$ only"],
+      "answer": "$x = 0$ or $x = 4$",
+      "explanation": "Factor out $2x$: $2x(x - 4) = 0$. So $2x = 0 \\Rightarrow x = 0$, or $x - 4 = 0 \\Rightarrow x = 4$.",
+      "difficulty": "easy"
+    },
+    {
+      "question": "The equation $x^2 + kx + 9 = 0$ has exactly one real solution. Which value of $k$ is possible?",
+      "type": "multiple_choice",
+      "options": ["$k = 6$", "$k = 3$", "$k = 0$", "$k = 10$"],
+      "answer": "$k = 6$",
+      "explanation": "One real solution means discriminant $D = k^2 - 36 = 0$, so $k^2 = 36$ and $k = \\pm 6$. Only $k = 6$ appears in the list.",
+      "difficulty": "medium"
+    },
+    {
+      "question": "Using the quadratic formula, the solutions of $x^2 - 3x - 1 = 0$ are:",
+      "type": "multiple_choice",
+      "options": ["$\\dfrac{3 \\pm \\sqrt{13}}{2}$", "$\\dfrac{3 \\pm \\sqrt{5}}{2}$", "$\\dfrac{-3 \\pm \\sqrt{13}}{2}$", "$\\dfrac{3 \\pm 1}{2}$"],
+      "answer": "$\\dfrac{3 \\pm \\sqrt{13}}{2}$",
+      "explanation": "Here $a = 1$, $b = -3$, $c = -1$. $D = (-3)^2 - 4(1)(-1) = 13$. So $x = \\dfrac{-(-3) \\pm \\sqrt{13}}{2} = \\dfrac{3 \\pm \\sqrt{13}}{2}$.",
+      "difficulty": "medium"
+    },
+    {
+      "question": "Which statement is true about $3x^2 + 2x + 1 = 0$?",
+      "type": "multiple_choice",
+      "options": ["Two distinct real roots", "One real root (repeated)", "No real roots", "Cannot tell without graphing"],
+      "answer": "No real roots",
+      "explanation": "Discriminant $D = 2^2 - 4(3)(1) = 4 - 12 = -8 < 0$, so there are no real roots (two complex conjugate roots).",
+      "difficulty": "medium"
+    },
+    {
+      "question": "The vertex of $y = x^2 - 4x + 5$ occurs at $x = $",
+      "type": "multiple_choice",
+      "options": ["$2$", "$-2$", "$4$", "$1$"],
+      "answer": "$2$",
+      "explanation": "For $y = ax^2 + bx + c$, the axis of symmetry is $x = -\\dfrac{b}{2a}$. Here $a = 1$, $b = -4$, so $x = \\dfrac{4}{2} = 2$.",
+      "difficulty": "easy"
+    },
+    {
+      "question": "Expand $(x - 3)^2$. Which expression is correct?",
+      "type": "multiple_choice",
+      "options": ["$x^2 - 6x + 9$", "$x^2 + 9$", "$x^2 - 9$", "$x^2 - 6x - 9$"],
+      "answer": "$x^2 - 6x + 9$",
+      "explanation": "$(x - 3)^2 = x^2 - 2 \\cdot x \\cdot 3 + 3^2 = x^2 - 6x + 9$.",
+      "difficulty": "easy"
+    },
+    {
+      "question": "A rectangle has length $2$ m more than its width. Its area is $15$ m$^2$. If width is $w$, which equation is correct?",
+      "type": "multiple_choice",
+      "options": ["$w(w + 2) = 15$", "$w + (w + 2) = 15$", "$2w(w + 2) = 15$", "$w^2 + 2 = 15$"],
+      "answer": "$w(w + 2) = 15$",
+      "explanation": "Width $w$, length $w + 2$. Area = width $\\times$ length = $w(w + 2) = 15$.",
+      "difficulty": "medium"
+    },
+    {
+      "question": "Compute the discriminant $\\Delta = b^2 - 4ac$ for $5x^2 - x + 2 = 0$.",
+      "type": "short_answer",
+      "options": [],
+      "answer": "$-39$",
+      "explanation": "$a = 5$, $b = -1$, $c = 2$. $\\Delta = (-1)^2 - 4(5)(2) = 1 - 40 = -39$.",
+      "difficulty": "easy"
+    },
+    {
+      "question": "Solve: $x^2 = 7x$. List all real solutions (comma-separated, e.g. $0, 7$).",
+      "type": "short_answer",
+      "options": [],
+      "answer": "$0, 7$",
+      "explanation": "Bring all terms to one side: $x^2 - 7x = 0$, factor $x(x - 7) = 0$, so $x = 0$ or $x = 7$.",
+      "difficulty": "easy"
+    },
+    {
+      "question": "Solve $x^2 + 6x + 5 = 0$ by factoring. Give solutions in increasing order, comma-separated.",
+      "type": "short_answer",
+      "options": [],
+      "answer": "$-5, -1$",
+      "explanation": "$(x + 5)(x + 1) = 0$, so $x = -5$ or $x = -1$. Increasing: $-5, -1$.",
+      "difficulty": "easy"
+    },
+    {
+      "question": "For $2x^2 - 5x - 3 = 0$, find the sum of the roots (hint: $-\\dfrac{b}{a}$).",
+      "type": "short_answer",
+      "options": [],
+      "answer": "$\\dfrac{5}{2}$",
+      "explanation": "For $ax^2 + bx + c = 0$, sum of roots $= -\\dfrac{b}{a}$. Here $-\\dfrac{(-5)}{2} = \\dfrac{5}{2}$.",
+      "difficulty": "medium"
+    },
+    {
+      "question": "Complete the square: write $x^2 + 8x + 3$ in the form $(x + h)^2 + k$. Give $k$.",
+      "type": "short_answer",
+      "options": [],
+      "answer": "$-13$",
+      "explanation": "$x^2 + 8x = (x + 4)^2 - 16$. So $x^2 + 8x + 3 = (x + 4)^2 - 16 + 3 = (x + 4)^2 - 13$. Thus $k = -13$.",
+      "difficulty": "hard"
+    },
+    {
+      "question": "The quadratic $x^2 + bx + 16 = 0$ has equal roots. Find the positive value of $b$.",
+      "type": "short_answer",
+      "options": [],
+      "answer": "$8$",
+      "explanation": "Equal roots $\\Rightarrow D = b^2 - 64 = 0 \\Rightarrow b^2 = 64 \\Rightarrow b = \\pm 8$. The positive value is $b = 8$.",
+      "difficulty": "hard"
+    },
+    {
+      "question": "A ball’s height is $h(t) = -5t^2 + 20t + 10$ (meters, $t$ in seconds). After how many seconds does it hit the ground? Give the positive root only, simplified.",
+      "type": "short_answer",
+      "options": [],
+      "answer": "$2 + \\sqrt{6}$",
+      "explanation": "Ground: $h = 0 \\Rightarrow -5t^2 + 20t + 10 = 0$, divide by $-5$: $t^2 - 4t - 2 = 0$. $t = \\dfrac{4 \\pm \\sqrt{16 + 8}}{2} = \\dfrac{4 \\pm \\sqrt{24}}{2} = 2 \\pm \\sqrt{6}$. Positive time when hitting ground after launch: $t = 2 + \\sqrt{6}$ s (the larger root).",
+      "difficulty": "hard"
+    }
+  ]
+}
