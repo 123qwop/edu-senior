@@ -58,6 +58,7 @@ class Question(Base):
     type = Column(String(50), nullable=False)  # 'flashcard', 'multiple_choice', 'true_false', 'short_answer', 'problem'
     content = Column(Text, nullable=False)
     correct_answer = Column(Text, nullable=False)
+    explanation = Column(Text, nullable=True)
 
     study_set = relationship("StudySet", back_populates="questions")
     options = relationship("QuestionOption", back_populates="question", cascade="all, delete-orphan")
@@ -98,6 +99,10 @@ class StudySetAssignment(Base):
     assigned_by = Column(Integer, ForeignKey("public.User.user_id"), nullable=False)
     assigned_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     due_date = Column(DateTime, nullable=True)
+    # Optional max time for one practice session (minutes); None = no limit
+    time_limit_minutes = Column(Integer, nullable=True)
+    # immediate = students may check answers during practice; end_only = feedback mainly after submit
+    practice_feedback_mode = Column(String(20), default="end_only", nullable=False)
 
     study_set = relationship("StudySet", back_populates="assignments")
     student_assignments = relationship("StudySetStudentAssignment", back_populates="assignment", cascade="all, delete-orphan")
