@@ -10,6 +10,8 @@ class ExplainAnswerRequest(BaseModel):
     user_answer: str = Field(..., min_length=1, max_length=4000)
     correct_answer: Optional[str] = Field(None, max_length=4000)
     subject: Optional[str] = Field(None, max_length=200)
+    # App UI language (e.g. en, ru, kz) so the model answers in the same language as the student.
+    response_language: Optional[str] = Field(None, max_length=20)
 
 
 class HintRequest(BaseModel):
@@ -17,6 +19,7 @@ class HintRequest(BaseModel):
 
     question: str = Field(..., min_length=1, max_length=8000)
     topic: Optional[str] = Field(None, max_length=200)
+    response_language: Optional[str] = Field(None, max_length=20)
 
 
 class FeedbackRequest(BaseModel):
@@ -27,6 +30,7 @@ class FeedbackRequest(BaseModel):
     is_correct: bool
     correct_answer: Optional[str] = Field(None, max_length=4000)
     topic: Optional[str] = Field(None, max_length=200)
+    response_language: Optional[str] = Field(None, max_length=20)
 
 
 class GenerateQuestionsRequest(BaseModel):

@@ -1,6 +1,8 @@
 """
 Authenticated AI endpoints backed by Google Gemini.
 """
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.ai import schemas
@@ -36,6 +38,24 @@ SYSTEM_TUTOR = (
 )
 
 
+def _response_language_clause(response_language: Optional[str]) -> str:
+    """Tell the model which language to write in (matches app i18n: en, ru, kz)."""
+    if not response_language:
+        return ""
+    code = response_language.strip().lower().split("-", 1)[0]
+    if code == "ru":
+        return (
+            "\n\nLanguage: Write your entire response in Russian, matching the student's interface language."
+        )
+    if code in ("kz", "kk"):
+        return (
+            "\n\nLanguage: Write your entire response in Kazakh, matching the student's interface language."
+        )
+    if code == "en":
+        return "\n\nLanguage: Write your entire response in English."
+    return ""
+
+
 @router.get("/status")
 def ai_status():
     """Whether the server has a Gemini API key (no key value exposed)."""
@@ -58,7 +78,7 @@ async def explain_answer(
         parts.append(f"Correct / expected answer (for reference): {body.correct_answer}")
     if body.subject:
         parts.append(f"Subject: {body.subject}")
-    prompt = "\n".join(parts)
+    prompt = "\n".join(parts) + _response_language_clause(body.response_language)
     text = await _safe_generate(prompt, system_instruction=SYSTEM_TUTOR, max_output_tokens=2048)
     return schemas.AiTextResponse(text=text)
 
@@ -74,7 +94,7 @@ async def study_hint(
         f"Give ONE short hint (3–6 sentences max) for this study question. "
         f"Do NOT state the direct final answer or copy multiple-choice options as the answer.\n\n"
         f"Topic: {topic}\n\nQuestion:\n{body.question}"
-    )
+    ) + _response_language_clause(body.response_language)
     text = await _safe_generate(prompt, system_instruction=SYSTEM_TUTOR, max_output_tokens=512)
     return schemas.AiTextResponse(text=text)
 
@@ -96,6 +116,7 @@ async def personalized_feedback(
         prompt += f"Reference answer: {body.correct_answer}\n"
     if body.topic:
         prompt += f"Topic: {body.topic}\n"
+    prompt += _response_language_clause(body.response_language)
     text = await _safe_generate(prompt, system_instruction=SYSTEM_TUTOR, max_output_tokens=512)
     return schemas.AiTextResponse(text=text)
 
