@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import Optional, List
+from pydantic import BaseModel, Field
+from typing import Optional, List, Literal
 from datetime import datetime
 from decimal import Decimal
 
@@ -13,6 +13,7 @@ class StudySetCreate(BaseModel):
     tags: Optional[List[str]] = []
     initialItem: Optional[dict] = None  # For the first item
     assignment: Optional[dict] = None  # For assignment info
+    is_public: bool = False
 
 
 class StudySetUpdate(BaseModel):
@@ -41,6 +42,14 @@ class StudySetOut(BaseModel):
     is_assigned: bool
     is_downloaded: bool
     mastery: Optional[float] = None
+    is_public: bool = False
+    is_shared: bool = False
+    # For practice UI: immediate vs end_only (assigned sets); omitted on list responses if not computed
+    practice_feedback_mode: Optional[Literal["immediate", "end_only"]] = None
+    # When opening practice with ?assignment_id= (validated for this user)
+    active_assignment_id: Optional[int] = None
+    assignment_due_date: Optional[datetime] = None
+    assignment_time_limit_minutes: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -50,6 +59,7 @@ class QuestionCreate(BaseModel):
     type: str  # 'flashcard', 'multiple_choice', 'true_false', 'short_answer', 'problem'
     content: str
     correct_answer: str
+    explanation: Optional[str] = None
     options: Optional[List[str]] = None  # For multiple choice
     term: Optional[str] = None  # For flashcards
     definition: Optional[str] = None  # For flashcards
@@ -63,6 +73,7 @@ class QuestionOut(BaseModel):
     type: str
     content: str
     correct_answer: str
+    explanation: Optional[str] = None
     options: Optional[List[str]] = None
     term: Optional[str] = None
     definition: Optional[str] = None
@@ -113,6 +124,26 @@ class AddStudentsRequest(BaseModel):
 class CreateAssignmentRequest(BaseModel):
     set_id: int
     due_date: Optional[datetime] = None
+    practice_feedback_mode: Literal["immediate", "end_only"] = "end_only"
+    # Optional max time for one practice session (minutes)
+    time_limit_minutes: Optional[int] = Field(None, ge=1, le=24 * 60)
+
+
+class StudySetAssignmentTeacherOut(BaseModel):
+    """Class-linked assignment row for teacher edit UI."""
+
+    assignment_id: int
+    class_id: int
+    class_name: str
+    due_date: Optional[datetime] = None
+    time_limit_minutes: Optional[int] = None
+
+
+class StudySetAssignmentPatch(BaseModel):
+    """Partial update; omit a field to leave it unchanged. Send JSON null to clear due or time limit."""
+
+    due_date: Optional[datetime] = None
+    time_limit_minutes: Optional[int] = Field(None, ge=1, le=24 * 60)
 
 
 class DashboardStats(BaseModel):
@@ -130,6 +161,7 @@ class DashboardAssignment(BaseModel):
     due: Optional[str] = None
     status: str
     set_id: int
+    time_limit_minutes: Optional[int] = None
 
 
 class Recommendation(BaseModel):

@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import JSONResponse
@@ -10,9 +11,59 @@ from app.auth.deps import get_current_user
 from app.auth.models import User
 from app.database.database import get_db
 from app.study_sets import models, schemas
+from app.study_sets import access_control
 from app.study_sets.recommendation_service import get_next_recommended_study_set
+from app.study_sets.rule_based_recommendations import build_rule_based_recommendations_list
 
 router = APIRouter()
+_logger = logging.getLogger(__name__)
+
+
+def _user_may_view_assignment_context(
+    db: Session,
+    user: User,
+    study_set: models.StudySet,
+    assignment: models.StudySetAssignment,
+) -> bool:
+    """Whether this user may attach practice metadata from this assignment (set_id must already match)."""
+    role_name = (user.role.name or "").lower() if user.role else ""
+    if assignment.class_id is None:
+        if role_name != "student":
+            return False
+        return (
+            db.query(models.StudySetStudentAssignment)
+            .filter(
+                models.StudySetStudentAssignment.assignment_id == assignment.assignment_id,
+                models.StudySetStudentAssignment.user_id == user.user_id,
+            )
+            .first()
+            is not None
+        )
+
+    if role_name == "student":
+        r = db.execute(
+            text("SELECT 1 FROM public.enrollment WHERE class_id = :c AND user_id = :u"),
+            {"c": assignment.class_id, "u": user.user_id},
+        ).first()
+        return r is not None
+
+    if role_name == "teacher":
+        teacher_row = db.execute(
+            text("SELECT teacher_id FROM public.teacher WHERE teacher_id = :user_id"),
+            {"user_id": user.user_id},
+        ).first()
+        if not teacher_row:
+            return False
+        teacher_id = teacher_row[0]
+        cr = db.execute(
+            text(
+                "SELECT 1 FROM public.class WHERE class_id = :cid AND teacher_id = :tid"
+            ),
+            {"cid": assignment.class_id, "tid": teacher_id},
+        ).first()
+        return cr is not None
+
+    return role_name == "admin"
 
 
 @router.get("", response_model=List[schemas.StudySetOut])
@@ -33,52 +84,12 @@ def get_study_sets(
     is_teacher = current_user.role and current_user.role.name.lower() == "teacher"
 
     if is_student:
-        # Students can only see:
-        # 1. Their own sets (created by them)
-        # 2. Teacher sets that are assigned to them (via individual assignment or class assignment)
-        
-        # Get sets assigned directly to the student
-        directly_assigned_set_ids = (
-            db.query(models.StudySetAssignment.set_id)
-            .join(models.StudySetStudentAssignment)
-            .filter(models.StudySetStudentAssignment.user_id == current_user.user_id)
-            .subquery()
-        )
-        
-        # Get classes the student is enrolled in
-        enrollment_query = text("SELECT class_id FROM public.enrollment WHERE user_id = :user_id")
-        enrolled_class_ids_result = db.execute(enrollment_query, {"user_id": current_user.user_id})
-        enrolled_class_ids = [row[0] for row in enrolled_class_ids_result] if enrolled_class_ids_result else []
-        
-        # Build conditions
-        conditions = [models.StudySet.creator_id == current_user.user_id]  # Own sets
-        
-        # Directly assigned sets
-        conditions.append(models.StudySet.set_id.in_(db.query(models.StudySetAssignment.set_id)
-            .join(models.StudySetStudentAssignment)
-            .filter(models.StudySetStudentAssignment.user_id == current_user.user_id)))
-        
-        # Class-assigned sets (if student is enrolled in any classes)
-        if enrolled_class_ids:
-            conditions.append(models.StudySet.set_id.in_(
-                db.query(models.StudySetAssignment.set_id)
-                .filter(models.StudySetAssignment.class_id.in_(enrolled_class_ids))
-            ))
-        
-        query = query.filter(or_(*conditions))
-        
-    elif is_teacher:
-        # Teachers can see:
-        # 1. Their own sets
-        # 2. Sets shared with them (if is_shared is True and not created by them)
         query = query.filter(
-            or_(
-                models.StudySet.creator_id == current_user.user_id,  # Own sets
-                and_(
-                    models.StudySet.is_shared == True,
-                    models.StudySet.creator_id != current_user.user_id,  # Shared by others
-                ),
-            )
+            or_(*access_control.build_student_list_conditions(db, current_user.user_id))
+        )
+    elif is_teacher:
+        query = query.filter(
+            or_(*access_control.build_teacher_list_conditions(db, current_user.user_id))
         )
 
     # Filter by ownership
@@ -273,6 +284,8 @@ def get_study_sets(
                 is_assigned=is_assigned,
                 is_downloaded=is_downloaded,
                 mastery=mastery,
+                is_public=study_set.is_public,
+                is_shared=study_set.is_shared,
             )
         )
 
@@ -286,11 +299,10 @@ def create_study_set(
     db: Session = Depends(get_db),
 ):
     """Create a new study set"""
-    # Create study set
-    # Determine if set should be shared based on creator role
     is_student = current_user.role and current_user.role.name.lower() == "student"
-    is_shared = payload.assignment is not None if not is_student else False  # Students' sets are never shared
-    
+    is_public = payload.is_public
+    is_shared = payload.assignment is not None and not is_student
+
     study_set = models.StudySet(
         title=payload.title,
         subject=payload.subject,
@@ -298,8 +310,8 @@ def create_study_set(
         level=payload.level,
         description=payload.description,
         creator_id=current_user.user_id,
-        is_shared=is_shared,  # Only teachers can create shared sets (when assigned)
-        is_public=False,  # Never public by default
+        is_shared=is_shared,
+        is_public=is_public,
     )
     db.add(study_set)
     db.flush()  # Get the set_id
@@ -357,11 +369,33 @@ def create_study_set(
 
     # Handle assignment if provided
     if payload.assignment and payload.assignment.get("classId"):
+        raw_due = payload.assignment.get("dueDate")
+        due_dt = None
+        if raw_due:
+            if isinstance(raw_due, datetime):
+                due_dt = raw_due
+            elif isinstance(raw_due, str) and raw_due.strip():
+                try:
+                    due_dt = datetime.fromisoformat(raw_due.replace("Z", "+00:00"))
+                except ValueError:
+                    due_dt = None
+        raw_tlim = payload.assignment.get("timeLimitMinutes")
+        tlim = None
+        if raw_tlim is not None and raw_tlim != "":
+            try:
+                tlim = int(raw_tlim)
+                if tlim < 1 or tlim > 24 * 60:
+                    tlim = None
+            except (TypeError, ValueError):
+                tlim = None
+
         assignment = models.StudySetAssignment(
             set_id=study_set.set_id,
             class_id=payload.assignment["classId"],
             assigned_by=current_user.user_id,
-            due_date=payload.assignment.get("dueDate"),
+            due_date=due_dt,
+            time_limit_minutes=tlim,
+            practice_feedback_mode="end_only",
         )
         db.add(assignment)
         db.flush()
@@ -379,6 +413,32 @@ def create_study_set(
 
     db.commit()
     db.refresh(study_set)
+
+    if payload.assignment and payload.assignment.get("classId"):
+        assn = (
+            db.query(models.StudySetAssignment)
+            .filter(
+                models.StudySetAssignment.set_id == study_set.set_id,
+                models.StudySetAssignment.class_id == payload.assignment["classId"],
+            )
+            .order_by(models.StudySetAssignment.assignment_id.desc())
+            .first()
+        )
+        if assn:
+            try:
+                from app.notifications.assignment_notify import notify_students_new_assignment
+
+                cls_row = db.query(models.Class).filter(models.Class.class_id == assn.class_id).first()
+                class_name = cls_row.class_name if cls_row else "your class"
+                notify_students_new_assignment(
+                    db,
+                    assignment_row=assn,
+                    study_set_title=study_set.title,
+                    teacher_user=current_user,
+                    class_name=class_name,
+                )
+            except Exception as exc:
+                _logger.exception("Assignment notify on create study set: %s", exc)
 
     # Return study set with full details
     item_count = db.query(func.count(models.Question.question_id)).filter(
@@ -401,6 +461,8 @@ def create_study_set(
         is_assigned=False,
         is_downloaded=False,
         mastery=None,
+        is_public=study_set.is_public,
+        is_shared=study_set.is_shared,
     )
 
 
@@ -950,8 +1012,10 @@ def create_class_assignment(
     if not study_set:
         raise HTTPException(status_code=404, detail="Study set not found")
     
-    # Check if teacher owns the study set or it's shared
-    if study_set.creator_id != current_user.user_id and not study_set.is_shared:
+    # Own set, legacy shared, or any public set (teachers can assign public sets to classes)
+    if study_set.creator_id != current_user.user_id and not (
+        study_set.is_shared or study_set.is_public
+    ):
         raise HTTPException(status_code=403, detail="You don't have permission to assign this study set")
     
     # Check if assignment already exists
@@ -962,25 +1026,35 @@ def create_class_assignment(
     existing_result = db.execute(existing_query, {"set_id": payload.set_id, "class_id": class_id})
     if existing_result.first():
         raise HTTPException(status_code=400, detail="This study set is already assigned to this class")
-    
-    # Create assignment
-    assignment_query = text("""
-        INSERT INTO public.study_set_assignment (set_id, class_id, assigned_by, due_date)
-        VALUES (:set_id, :class_id, :assigned_by, :due_date)
-        RETURNING assignment_id
-    """)
-    assignment_result = db.execute(
-        assignment_query,
-        {
-            "set_id": payload.set_id,
-            "class_id": class_id,
-            "assigned_by": current_user.user_id,
-            "due_date": payload.due_date,
-        }
+
+    row = models.StudySetAssignment(
+        set_id=payload.set_id,
+        class_id=class_id,
+        assigned_by=current_user.user_id,
+        due_date=payload.due_date,
+        time_limit_minutes=payload.time_limit_minutes,
+        practice_feedback_mode=payload.practice_feedback_mode,
     )
+    db.add(row)
     db.commit()
-    
-    return {"message": "Study set assigned to class successfully", "assignment_id": assignment_result.first()[0]}
+    db.refresh(row)
+
+    try:
+        from app.notifications.assignment_notify import notify_students_new_assignment
+
+        cls_row = db.query(models.Class).filter(models.Class.class_id == class_id).first()
+        class_name = cls_row.class_name if cls_row else "your class"
+        notify_students_new_assignment(
+            db,
+            assignment_row=row,
+            study_set_title=study_set.title,
+            teacher_user=current_user,
+            class_name=class_name,
+        )
+    except Exception as exc:
+        _logger.exception("Assignment notify failed: %s", exc)
+
+    return {"message": "Study set assigned to class successfully", "assignment_id": row.assignment_id}
 
 
 @router.get("/classes/{class_id}/assignments")
@@ -1023,6 +1097,7 @@ def get_class_assignments(
             ssa.assignment_id,
             ssa.set_id,
             ssa.due_date,
+            ssa.time_limit_minutes,
             ssa.assigned_by,
             ss.title,
             ss.subject,
@@ -1043,12 +1118,13 @@ def get_class_assignments(
             "assignment_id": int(row[0]),
             "set_id": int(row[1]),
             "due_date": row[2].isoformat() if row[2] else None,
-            "assigned_by": int(row[3]),
-            "title": str(row[4]),
-            "subject": str(row[5]) if row[5] else None,
-            "type": str(row[6]),
-            "level": str(row[7]) if row[7] else None,
-            "description": str(row[8]) if row[8] else None,
+            "time_limit_minutes": int(row[3]) if row[3] is not None else None,
+            "assigned_by": int(row[4]),
+            "title": str(row[5]),
+            "subject": str(row[6]) if row[6] else None,
+            "type": str(row[7]),
+            "level": str(row[8]) if row[8] else None,
+            "description": str(row[9]) if row[9] else None,
         })
     
     return result
@@ -1587,6 +1663,14 @@ def batch_record_progress(
             if not set_id or not question_id:
                 failed_count += 1
                 continue
+
+            study_set = db.query(models.StudySet).filter(models.StudySet.set_id == set_id).first()
+            if not study_set:
+                failed_count += 1
+                continue
+            if not access_control.can_view_study_set(db, current_user, study_set):
+                failed_count += 1
+                continue
             
             # Get or create progress record
             progress = (
@@ -1601,12 +1685,6 @@ def batch_record_progress(
             )
             
             if not progress:
-                # Get study set to get total items
-                study_set = db.query(models.StudySet).filter(models.StudySet.set_id == set_id).first()
-                if not study_set:
-                    failed_count += 1
-                    continue
-                
                 # Count total questions
                 total_items = db.query(models.Question).filter(models.Question.set_id == set_id).count()
                 
@@ -1650,9 +1728,119 @@ def batch_record_progress(
     return {"synced": synced_count, "failed": failed_count}
 
 
+def _may_manage_study_set_assignment(
+    db: Session,
+    user: User,
+    assn: models.StudySetAssignment,
+    study_set: models.StudySet,
+) -> bool:
+    """Creator of the set or teacher of the assignment's class may view/edit due date and time limit."""
+    if study_set.creator_id == user.user_id:
+        return True
+    role_name = (user.role.name or "").lower() if user.role else ""
+    if role_name == "admin":
+        return True
+    if role_name != "teacher" or assn.class_id is None:
+        return False
+    teacher_row = db.execute(
+        text("SELECT teacher_id FROM public.teacher WHERE teacher_id = :user_id"),
+        {"user_id": user.user_id},
+    ).first()
+    if not teacher_row:
+        return False
+    tid = teacher_row[0]
+    return (
+        db.execute(
+            text("SELECT 1 FROM public.class WHERE class_id = :cid AND teacher_id = :tid"),
+            {"cid": assn.class_id, "tid": tid},
+        ).first()
+        is not None
+    )
+
+
+# Path must not be `/{set_id}/assignments` — that shadows GET /dashboard/assignments (set_id="dashboard").
+@router.get("/set/{set_id}/assignments", response_model=List[schemas.StudySetAssignmentTeacherOut])
+def list_teacher_study_set_assignments(
+    set_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List class assignments for this study set (creators and the class teacher)."""
+    study_set = db.query(models.StudySet).filter(models.StudySet.set_id == set_id).first()
+    if not study_set:
+        raise HTTPException(status_code=404, detail="Study set not found")
+
+    assns = (
+        db.query(models.StudySetAssignment)
+        .filter(models.StudySetAssignment.set_id == set_id)
+        .order_by(models.StudySetAssignment.assignment_id.desc())
+        .all()
+    )
+    result: List[schemas.StudySetAssignmentTeacherOut] = []
+    for assn in assns:
+        if assn.class_id is None:
+            continue
+        if not _may_manage_study_set_assignment(db, current_user, assn, study_set):
+            continue
+        cls = db.query(models.Class).filter(models.Class.class_id == assn.class_id).first()
+        class_name = cls.class_name if cls else ""
+        result.append(
+            schemas.StudySetAssignmentTeacherOut(
+                assignment_id=assn.assignment_id,
+                class_id=assn.class_id,
+                class_name=class_name,
+                due_date=assn.due_date,
+                time_limit_minutes=assn.time_limit_minutes,
+            )
+        )
+    return result
+
+
+@router.patch("/assignments/{assignment_id}", response_model=schemas.StudySetAssignmentTeacherOut)
+def patch_study_set_assignment(
+    assignment_id: int,
+    payload: schemas.StudySetAssignmentPatch,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update due date and/or session time limit for a class assignment."""
+    assn = (
+        db.query(models.StudySetAssignment)
+        .filter(models.StudySetAssignment.assignment_id == assignment_id)
+        .first()
+    )
+    if not assn or assn.class_id is None:
+        raise HTTPException(status_code=404, detail="Assignment not found")
+    study_set = db.query(models.StudySet).filter(models.StudySet.set_id == assn.set_id).first()
+    if not study_set:
+        raise HTTPException(status_code=404, detail="Study set not found")
+    if not _may_manage_study_set_assignment(db, current_user, assn, study_set):
+        raise HTTPException(status_code=403, detail="You don't have permission to update this assignment")
+
+    updates = payload.model_dump(exclude_unset=True)
+    if "due_date" in updates:
+        assn.due_date = payload.due_date
+    if "time_limit_minutes" in updates:
+        assn.time_limit_minutes = payload.time_limit_minutes
+
+    db.commit()
+    db.refresh(assn)
+
+    cls = db.query(models.Class).filter(models.Class.class_id == assn.class_id).first()
+    class_name = cls.class_name if cls else ""
+    return schemas.StudySetAssignmentTeacherOut(
+        assignment_id=assn.assignment_id,
+        class_id=assn.class_id,
+        class_name=class_name,
+        due_date=assn.due_date,
+        time_limit_minutes=assn.time_limit_minutes,
+    )
+
+
 @router.get("/{set_id}", response_model=schemas.StudySetOut)
 def get_study_set(
     set_id: int,
+    assignment_id: Optional[int] = Query(None, description="Optional assignment context for due date / time limit"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -1661,65 +1849,7 @@ def get_study_set(
     if not study_set:
         raise HTTPException(status_code=404, detail="Study set not found")
 
-    # Access control: Enforce visibility rules based on user role
-    is_student = current_user.role and current_user.role.name.lower() == "student"
-    is_teacher = current_user.role and current_user.role.name.lower() == "teacher"
-    
-    has_access = False
-    
-    if is_student:
-        # Students can access:
-        # 1. Their own sets
-        if study_set.creator_id == current_user.user_id:
-            has_access = True
-        else:
-            # 2. Sets assigned to them (directly or via class)
-            # Check direct assignment
-            direct_assignment = (
-                db.query(models.StudySetAssignment)
-                .join(models.StudySetStudentAssignment)
-                .filter(
-                    and_(
-                        models.StudySetAssignment.set_id == set_id,
-                        models.StudySetStudentAssignment.user_id == current_user.user_id,
-                    )
-                )
-                .first()
-            )
-            
-            # Check class assignment
-            from sqlalchemy import text
-            enrolled_class_ids_result = db.execute(
-                text("SELECT class_id FROM public.enrollment WHERE user_id = :user_id"),
-                {"user_id": current_user.user_id}
-            )
-            enrolled_class_ids = [row[0] for row in enrolled_class_ids_result]
-            
-            class_assignment = None
-            if enrolled_class_ids:
-                class_assignment = (
-                    db.query(models.StudySetAssignment)
-                    .filter(
-                        and_(
-                            models.StudySetAssignment.set_id == set_id,
-                            models.StudySetAssignment.class_id.in_(enrolled_class_ids),
-                        )
-                    )
-                    .first()
-                )
-            
-            has_access = direct_assignment is not None or class_assignment is not None
-            
-    elif is_teacher:
-        # Teachers can access:
-        # 1. Their own sets
-        # 2. Sets shared with them
-        has_access = (
-            study_set.creator_id == current_user.user_id
-            or (study_set.is_shared and study_set.creator_id != current_user.user_id)
-        )
-    
-    if not has_access:
+    if not access_control.can_view_study_set(db, current_user, study_set):
         raise HTTPException(status_code=403, detail="Access denied. You don't have permission to view this study set.")
 
     item_count = db.query(func.count(models.Question.question_id)).filter(
@@ -1755,6 +1885,28 @@ def get_study_set(
     )
     mastery = float(progress.mastery_percentage) if progress else None
 
+    pfm = access_control.effective_practice_feedback_mode(db, current_user, study_set)
+
+    active_assignment_id = None
+    assignment_due_date = None
+    assignment_time_limit_minutes = None
+    if assignment_id is not None:
+        assn = (
+            db.query(models.StudySetAssignment)
+            .filter(
+                models.StudySetAssignment.assignment_id == assignment_id,
+                models.StudySetAssignment.set_id == set_id,
+            )
+            .first()
+        )
+        if not assn:
+            raise HTTPException(status_code=404, detail="Assignment not found for this study set")
+        if not _user_may_view_assignment_context(db, current_user, study_set, assn):
+            raise HTTPException(status_code=403, detail="You cannot use this assignment context")
+        active_assignment_id = assn.assignment_id
+        assignment_due_date = assn.due_date
+        assignment_time_limit_minutes = assn.time_limit_minutes
+
     return schemas.StudySetOut(
         id=study_set.set_id,
         title=study_set.title,
@@ -1770,6 +1922,12 @@ def get_study_set(
         is_assigned=is_assigned,
         is_downloaded=is_downloaded,
         mastery=mastery,
+        is_public=study_set.is_public,
+        is_shared=study_set.is_shared,
+        practice_feedback_mode=pfm,
+        active_assignment_id=active_assignment_id,
+        assignment_due_date=assignment_due_date,
+        assignment_time_limit_minutes=assignment_time_limit_minutes,
     )
 
 
@@ -1800,13 +1958,14 @@ def update_study_set(
         study_set.level = payload.level
     if payload.description is not None:
         study_set.description = payload.description
-    if payload.is_shared is not None:
-        # Only teachers can set is_shared
-        is_teacher = current_user.role and current_user.role.name.lower() == "teacher"
-        if is_teacher:
-            study_set.is_shared = payload.is_shared
+
+    is_teacher = current_user.role and current_user.role.name.lower() == "teacher"
+
     if payload.is_public is not None:
         study_set.is_public = payload.is_public
+    if payload.is_shared is not None:
+        if is_teacher:
+            study_set.is_shared = payload.is_shared
     
     study_set.updated_at = datetime.utcnow()
     
@@ -1869,74 +2028,9 @@ def update_study_set(
         is_assigned=is_assigned,
         is_downloaded=is_downloaded,
         mastery=mastery,
+        is_public=study_set.is_public,
+        is_shared=study_set.is_shared,
     )
-
-
-@router.get("/classes")
-def get_classes(
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Get classes for the current user (teacher's classes or enrolled classes)"""
-    try:
-        is_teacher = current_user.role and current_user.role.name.lower() == "teacher"
-        result = []
-        
-        if is_teacher:
-            # Teachers see their own classes
-            # Note: class.teacher_id references teacher.teacher_id, and teacher.teacher_id = User.user_id
-            # So we can query directly if teacher_id in class table equals user_id
-            # But actually, we need to join through teacher table
-            classes_query = text("""
-                SELECT c.class_id, c.class_name, c.teacher_id 
-                FROM public.class c
-                INNER JOIN public.teacher t ON c.teacher_id = t.teacher_id
-                WHERE t.teacher_id = :user_id
-            """)
-            classes_result = db.execute(classes_query, {"user_id": current_user.user_id})
-            classes_data = classes_result.fetchall()
-            
-                # Convert directly to response format
-            for row in classes_data:
-                result.append({
-                    "id": int(row[0]),
-                    "class_name": str(row[1]),
-                    "teacher_id": int(row[2]),
-                    "subject": None,
-                })
-        else:
-            # Students see classes they're enrolled in
-            enrollment_query = text("SELECT class_id FROM public.enrollment WHERE user_id = :user_id")
-            enrolled_class_ids_result = db.execute(enrollment_query, {"user_id": current_user.user_id})
-            enrolled_class_ids = [row[0] for row in enrolled_class_ids_result] if enrolled_class_ids_result else []
-            
-            if enrolled_class_ids:
-                # Query classes using ORM but convert to dicts immediately
-                class_rows = db.query(models.Class).filter(
-                    models.Class.class_id.in_(enrolled_class_ids)
-                ).all()
-                classes_data = [
-                    (c.class_id, c.class_name, c.teacher_id) 
-                    for c in class_rows
-                ]
-                
-                for row in classes_data:
-                    result.append({
-                        "id": int(row[0]),
-                        "class_name": str(row[1]),
-                        "teacher_id": int(row[2]),
-                        "subject": None,
-                    })
-        
-        return result
-    except Exception as e:
-        # Log the error for debugging
-        import traceback
-        error_msg = f"Error in get_classes: {str(e)}"
-        print(error_msg)
-        traceback.print_exc()
-        # Return empty list - this should still validate as List[ClassOut]
-        return []
 
 
 @router.post("/{set_id}/offline")
@@ -1949,6 +2043,8 @@ def mark_offline(
     study_set = db.query(models.StudySet).filter(models.StudySet.set_id == set_id).first()
     if not study_set:
         raise HTTPException(status_code=404, detail="Study set not found")
+    if not access_control.can_view_study_set(db, current_user, study_set):
+        raise HTTPException(status_code=403, detail="You don't have access to this study set")
 
     # Check if already marked
     existing = (
@@ -2007,51 +2103,10 @@ def get_study_set_questions(
     study_set = db.query(models.StudySet).filter(models.StudySet.set_id == set_id).first()
     if not study_set:
         raise HTTPException(status_code=404, detail="Study set not found")
-    
-    is_student = current_user.role and current_user.role.name.lower() == "student"
-    is_teacher = current_user.role and current_user.role.name.lower() == "teacher"
-    
-    if is_student:
-        if study_set.creator_id != current_user.user_id:
-            # Check if directly assigned to student
-            directly_assigned = (
-                db.query(models.StudySetAssignment)
-                .join(models.StudySetStudentAssignment)
-                .filter(
-                    and_(
-                        models.StudySetAssignment.set_id == study_set.set_id,
-                        models.StudySetStudentAssignment.user_id == current_user.user_id,
-                    )
-                )
-                .first()
-                is not None
-            )
-            
-            # Check if assigned to a class the student is enrolled in
-            enrollment_query = text("SELECT class_id FROM public.enrollment WHERE user_id = :user_id")
-            enrolled_class_ids_result = db.execute(enrollment_query, {"user_id": current_user.user_id})
-            enrolled_class_ids = [row[0] for row in enrolled_class_ids_result] if enrolled_class_ids_result else []
-            
-            class_assigned = False
-            if enrolled_class_ids:
-                class_assigned = (
-                    db.query(models.StudySetAssignment)
-                    .filter(
-                        and_(
-                            models.StudySetAssignment.set_id == study_set.set_id,
-                            models.StudySetAssignment.class_id.in_(enrolled_class_ids),
-                        )
-                    )
-                    .first()
-                    is not None
-                )
-            
-            if not (directly_assigned or class_assigned):
-                raise HTTPException(status_code=403, detail="You don't have access to this study set")
-    elif is_teacher:
-        if study_set.creator_id != current_user.user_id and not study_set.is_shared:
-            raise HTTPException(status_code=403, detail="You don't have access to this study set")
-    
+
+    if not access_control.can_view_study_set(db, current_user, study_set):
+        raise HTTPException(status_code=403, detail="You don't have access to this study set")
+
     questions = db.query(models.Question).filter(models.Question.set_id == set_id).all()
     
     result = []
@@ -2062,6 +2117,7 @@ def get_study_set_questions(
             "type": question.type,
             "content": question.content,
             "correct_answer": question.correct_answer,
+            "explanation": question.explanation,
         }
         
         if question.type == "flashcard":
@@ -2095,6 +2151,9 @@ def record_progress(
     study_set = db.query(models.StudySet).filter(models.StudySet.set_id == set_id).first()
     if not study_set:
         raise HTTPException(status_code=404, detail="Study set not found")
+
+    if not access_control.can_view_study_set(db, current_user, study_set):
+        raise HTTPException(status_code=403, detail="You don't have access to this study set")
     
     questions = db.query(models.Question).filter(models.Question.set_id == set_id).all()
     total_questions = len(questions)
@@ -2200,8 +2259,13 @@ def add_question(
     question_type = payload.type
     if study_set.type == "Flashcards" and question_type != "flashcard":
         raise HTTPException(status_code=400, detail="Flashcard study sets can only contain flashcard questions")
-    if study_set.type == "Quiz" and question_type not in ["multiple_choice", "true_false", "short_answer"]:
-        raise HTTPException(status_code=400, detail="Quiz study sets can only contain quiz questions")
+    if study_set.type == "Quiz" and question_type not in [
+        "multiple_choice",
+        "true_false",
+        "short_answer",
+        "flashcard",
+    ]:
+        raise HTTPException(status_code=400, detail="Quiz study sets can only contain quiz or flashcard questions")
     if study_set.type == "Problem set" and question_type != "problem":
         raise HTTPException(status_code=400, detail="Problem set study sets can only contain problem questions")
     
@@ -2210,6 +2274,7 @@ def add_question(
         type=question_type,
         content=payload.content,
         correct_answer=payload.correct_answer,
+        explanation=(payload.explanation.strip() if payload.explanation else None),
     )
     db.add(question)
     db.flush()
@@ -2239,6 +2304,7 @@ def add_question(
         "type": question.type,
         "content": question.content,
         "correct_answer": question.correct_answer,
+        "explanation": question.explanation,
     }
 
 
@@ -2270,7 +2336,8 @@ def update_question(
     question.type = payload.type
     question.content = payload.content
     question.correct_answer = payload.correct_answer
-    
+    question.explanation = payload.explanation.strip() if payload.explanation else None
+
     if question.type == "flashcard":
         flashcard = db.query(models.Flashcard).filter(models.Flashcard.question_id == question_id).first()
         if flashcard:
@@ -2303,6 +2370,7 @@ def update_question(
         "type": question.type,
         "content": question.content,
         "correct_answer": question.correct_answer,
+        "explanation": question.explanation,
     }
 
 
@@ -2423,52 +2491,73 @@ def get_dashboard_assignments(
     
     if not is_student:
         return []
-    
-    assignments_query = (
-        db.query(
-            models.StudySetAssignment.assignment_id,
-            models.StudySet.title,
-            models.StudySetAssignment.due_date,
-            models.StudySet.set_id,
-        )
-        .join(models.StudySet, models.StudySetAssignment.set_id == models.StudySet.set_id)
-        .join(
-            models.StudySetStudentAssignment,
-            models.StudySetAssignment.assignment_id == models.StudySetStudentAssignment.assignment_id,
-        )
-        .filter(models.StudySetStudentAssignment.user_id == current_user.user_id)
-        .order_by(models.StudySetAssignment.due_date.asc().nullslast())
-        .limit(10)
-    )
-    
+
+    uid = current_user.user_id
+    rows = db.execute(
+        text(
+            """
+            SELECT ssa.assignment_id, ss.title, ssa.due_date, ss.set_id, ssa.time_limit_minutes
+            FROM public.study_set_assignment ssa
+            INNER JOIN public.studyset ss ON ssa.set_id = ss.set_id
+            WHERE (
+                EXISTS (
+                    SELECT 1 FROM public.study_set_student_assignment ssa2
+                    WHERE ssa2.assignment_id = ssa.assignment_id AND ssa2.user_id = :uid
+                )
+                OR (
+                    ssa.class_id IS NOT NULL AND EXISTS (
+                        SELECT 1 FROM public.enrollment e
+                        WHERE e.class_id = ssa.class_id AND e.user_id = :uid
+                    )
+                )
+            )
+            ORDER BY
+                CASE
+                    WHEN ssa.due_date IS NOT NULL AND ssa.due_date < CURRENT_TIMESTAMP THEN 0
+                    WHEN ssa.due_date IS NOT NULL THEN 1
+                    ELSE 2
+                END,
+                ssa.due_date ASC NULLS LAST,
+                ssa.assignment_id DESC
+            LIMIT 50
+            """
+        ),
+        {"uid": uid},
+    ).fetchall()
+
     assignments = []
-    for assignment in assignments_query.all():
+    for row in rows:
+        aid, title, due_dt, set_id, tlim = row[0], row[1], row[2], row[3], row[4]
         progress = (
             db.query(models.StudySetProgress)
             .filter(
                 and_(
-                    models.StudySetProgress.set_id == assignment.set_id,
-                    models.StudySetProgress.user_id == current_user.user_id,
+                    models.StudySetProgress.set_id == set_id,
+                    models.StudySetProgress.user_id == uid,
                 )
             )
             .first()
         )
-        
+
         if progress and progress.mastery_percentage and float(progress.mastery_percentage) >= 100:
             status = "Completed"
         elif progress:
             status = "In progress"
         else:
             status = "Not started"
-        
-        assignments.append({
-            "id": assignment.assignment_id,
-            "title": assignment.title,
-            "due": assignment.due_date.strftime("%Y-%m-%d") if assignment.due_date else None,
-            "status": status,
-            "set_id": assignment.set_id,
-        })
-    
+
+        assignments.append(
+            {
+                "id": int(aid),
+                "title": str(title),
+                # Full ISO datetime so students see date + time in the UI
+                "due": due_dt.isoformat() if due_dt else None,
+                "status": status,
+                "set_id": int(set_id),
+                "time_limit_minutes": int(tlim) if tlim is not None else None,
+            }
+        )
+
     return assignments
 
 
@@ -2572,6 +2661,29 @@ def get_recommendations(
         )
     
     return recommendations
+
+
+@router.get("/recommendations/me")
+def get_rule_based_recommendations_for_student(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Rule-based study set suggestions from practice history (no ML / no Gemini).
+    Response shape: { "recommendations": [ { "id", "title", "subject", "level", "reason" }, ... ] }.
+    """
+    is_student = current_user.role and current_user.role.name.lower() == "student"
+    if not is_student:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only students can access recommendations",
+        )
+    try:
+        items = build_rule_based_recommendations_list(current_user.user_id, db, limit=5)
+    except Exception:
+        _logger.exception("build_rule_based_recommendations_list failed")
+        items = []
+    return {"recommendations": items}
 
 
 @router.get("/recommendations/next")
