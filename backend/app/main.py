@@ -8,6 +8,7 @@ from app.auth import routes as auth_routes
 from app.study_sets import routes as study_sets_routes
 from app.ai import routes as ai_routes
 from app.admin import routes as admin_routes
+from app.notifications import routes as notifications_routes
 from app.database.database import Base, engine
 
 app = FastAPI(title="Edu Senior Backend")
@@ -79,3 +80,4 @@ app.include_router(auth_routes.router, prefix="/auth", tags=["Authentication"])
 app.include_router(study_sets_routes.router, prefix="/study-sets", tags=["Study Sets"])
 app.include_router(ai_routes.router, prefix="/study-sets/ai", tags=["AI (Gemini)"])
 app.include_router(admin_routes.router, prefix="/admin", tags=["Admin"])
+app.include_router(notifications_routes.router, prefix="/notifications", tags=["Notifications"])
