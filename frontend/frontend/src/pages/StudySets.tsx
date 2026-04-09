@@ -38,9 +38,9 @@ import { getUserRole, isTeacher } from '../api/authApi'
 import { getStudySets, deleteStudySet, getStudySet, getStudySetQuestions, type StudySetOut } from '../api/studySetsApi'
 import CreateStudySetDialog from '../components/CreateStudySetDialog'
 import EditStudySetDialog from '../components/EditStudySetDialog'
+import AssignStudySetToClassDialog from '../components/AssignStudySetToClassDialog'
 import StudySetContentEditor from '../components/StudySetContentEditor'
-import { useNavigate } from 'react-router-dom'
-import { Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { downloadStudySet, removeDownloadedStudySet, isStudySetDownloaded, getAllDownloadedStudySets, initDB } from '../utils/offlineStorage'
 import { useOnlineStatus } from '../hooks/useOnlineStatus'
 import { syncOfflineAttempts } from '../utils/syncOfflineAttempts'
@@ -79,6 +79,7 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
   const { t } = useTranslation()
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
   const open = Boolean(anchorEl)
+  const canEditOwnSet = userId !== null && studySet.creator_id === userId
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget)
@@ -205,6 +206,13 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
               sx={{ bgcolor: 'warning.50', color: 'warning.main', fontSize: '0.75rem' }}
             />
           )}
+          {studySet.is_public && (
+            <Chip
+              label={t('studySets.badgePublic')}
+              size="small"
+              sx={{ bgcolor: 'info.50', color: 'info.main', fontSize: '0.75rem' }}
+            />
+          )}
         </Stack>
       </CardContent>
 
@@ -234,31 +242,33 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
       >
         {isTeacherView ? (
           <>
-            <Stack
-              direction="row"
-              spacing={1.5}
-              flexWrap="wrap"
-              useFlexGap
-              sx={{ pl: 0.5, pr: 1, alignItems: 'center' }}
-            >
-              <Button
-                variant="contained"
-                size="small"
-                startIcon={<EditIcon />}
-                onClick={() => onEdit?.(studySet)}
-                sx={{ bgcolor: 'primary.main' }}
+            {canEditOwnSet ? (
+              <Stack
+                direction="row"
+                spacing={1.5}
+                flexWrap="wrap"
+                useFlexGap
+                sx={{ pl: 0.5, pr: 1, alignItems: 'center' }}
               >
-                {t('studySets.editDetails')}
-              </Button>
-              <Button
-                variant="outlined"
-                size="small"
-                onClick={() => onEditContent?.(studySet)}
-                sx={{ borderColor: 'primary.main', color: 'primary.main' }}
-              >
-                {t('studySets.editContent')}
-              </Button>
-            </Stack>
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<EditIcon />}
+                  onClick={() => onEdit?.(studySet)}
+                  sx={{ bgcolor: 'primary.main' }}
+                >
+                  {t('studySets.editDetails')}
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => onEditContent?.(studySet)}
+                  sx={{ borderColor: 'primary.main', color: 'primary.main' }}
+                >
+                  {t('studySets.editContent')}
+                </Button>
+              </Stack>
+            ) : null}
             <Stack
               direction="row"
               spacing={0.5}
@@ -393,8 +403,8 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
 
       {/* More Menu */}
       <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
-        {(isTeacherView || (userId !== null && studySet.creator_id === userId)) && (
-          <MenuItem 
+        {canEditOwnSet && (
+          <MenuItem
             onClick={() => {
               onEdit?.(studySet)
               handleClose()
@@ -403,8 +413,8 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
             {t('studySets.editDetails')}
           </MenuItem>
         )}
-        {(isTeacherView || (userId !== null && studySet.creator_id === userId)) && (
-          <MenuItem 
+        {canEditOwnSet && (
+          <MenuItem
             onClick={() => {
               onEditContent?.(studySet)
               handleClose()
@@ -441,7 +451,7 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
             {t('studySets.viewAnalytics')}
           </MenuItem>
         )}
-        {(isTeacherView || (userId !== null && studySet.creator_id === userId)) && (
+        {canEditOwnSet && (
           <MenuItem
             onClick={() => {
               if (window.confirm(t('studySets.deleteConfirm'))) {
@@ -462,6 +472,7 @@ function StudySetCard({ studySet, isTeacherView, onDownload, onRemoveDownload, i
 export default function StudySets() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const isOnline = useOnlineStatus()
   const [studySets, setStudySets] = useState<(StudySetOut & { lastActivity?: string; isRecommended?: boolean; owner?: string; isDownloaded?: boolean })[]>([])
   const [loading, setLoading] = useState(true)
@@ -472,6 +483,27 @@ export default function StudySets() {
   const [selectedOwnership, setSelectedOwnership] = useState('')
   const [sortBy, setSortBy] = useState('recently-used')
   const [currentTab, setCurrentTab] = useState(0)
+
+  const isTeacherView = isTeacher()
+
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab === 'assigned' && !isTeacherView) {
+      setCurrentTab(2)
+    }
+  }, [searchParams, isTeacherView])
+
+  useEffect(() => {
+    if (isTeacherView && currentTab > 2) {
+      setCurrentTab(0)
+    }
+  }, [isTeacherView, currentTab])
+
+  useEffect(() => {
+    if (isTeacherView && selectedOwnership === 'Shared with me') {
+      setSelectedOwnership('')
+    }
+  }, [isTeacherView, selectedOwnership])
   const [userRole, setUserRole] = useState<string | null>(null)
   const [userId, setUserId] = useState<number | null>(null)
   const [downloadingSetId, setDownloadingSetId] = useState<number | null>(null)
@@ -568,7 +600,7 @@ export default function StudySets() {
   
   // When switching to Offline tab, reload downloaded sets (works both online and offline)
   useEffect(() => {
-    if (currentTab === 3 && !isTeacherView) {
+    if (currentTab === 4 && !isTeacherView) {
       loadDownloadedSets()
     }
   }, [currentTab])
@@ -609,15 +641,14 @@ export default function StudySets() {
     }
   }
 
-  const isTeacherView = isTeacher()
-
-  // Student tabs: All, Assigned, My sets, Offline — Teacher: My sets, Shared with me, All
+  // Student: All, Public sets, Assigned, My sets, Offline — Teacher: My sets, All, Public sets
   const tabs = useMemo(
     () =>
       isTeacherView
-        ? [t('studySets.tabMySets'), t('studySets.tabSharedWithMe'), t('studySets.tabAll')]
+        ? [t('studySets.tabMySets'), t('studySets.tabAll'), t('studySets.tabPublicSets')]
         : [
             t('studySets.tabAll'),
+            t('studySets.tabPublicSets'),
             t('studySets.tabAssigned'),
             t('studySets.tabMySets'),
             t('studySets.tabOffline'),
@@ -635,21 +666,21 @@ export default function StudySets() {
         return set.creator_id === userId
       }
       if (currentTab === 1) {
-        // Shared with me - exclude own sets
-        if (userId === null) return true // Show all if userId not loaded yet
-        return set.creator_id !== userId
+        // All - show everything from the fetched list
+        return true
       }
-      // Tab 2 (All) shows everything
-      return true
+      // Tab 2: Public sets — same fetch, filter by is_public
+      return set.is_public === true
     } else {
       if (currentTab === 0) return true // All - show everything
-      if (currentTab === 1 && !set.is_assigned) return false // Assigned
-      if (currentTab === 2) {
+      if (currentTab === 1) return set.is_public === true // Public sets
+      if (currentTab === 2 && !set.is_assigned) return false // Assigned
+      if (currentTab === 3) {
         // My sets - only show sets created by current user
         if (userId === null) return true // Show all if userId not loaded yet
         return set.creator_id === userId
       }
-      if (currentTab === 3) {
+      if (currentTab === 4) {
         // Offline tab - only show downloaded sets
         // Check both isDownloaded flag and verify in IndexedDB
         if (!set.isDownloaded && !set.is_downloaded) {
@@ -689,7 +720,7 @@ export default function StudySets() {
       ))
       
       // If we're on the Offline tab, reload all downloaded sets to show the new one
-      if (currentTab === 3) {
+      if (currentTab === 4) {
         console.log('On Offline tab, reloading all downloaded sets...')
         await loadDownloadedSets()
       }
@@ -829,11 +860,7 @@ export default function StudySets() {
               >
                 <MenuItem value="">{t('common.all')}</MenuItem>
                 <MenuItem value="Mine">{t('studySets.mine')}</MenuItem>
-                {isTeacherView ? (
-                  <MenuItem value="Shared with me">{t('studySets.sharedWithMe')}</MenuItem>
-                ) : (
-                  <MenuItem value="Assigned">{t('studySets.assignedFilter')}</MenuItem>
-                )}
+                {!isTeacherView ? <MenuItem value="Assigned">{t('studySets.assignedFilter')}</MenuItem> : null}
               </Select>
             </FormControl>
           </Grid>
@@ -850,8 +877,8 @@ export default function StudySets() {
             </FormControl>
           </Grid>
 
-          {/* Create Button - Hide in "Shared with me" tab for teachers and "Assigned" tab for students */}
-          {!(currentTab === 1) && (
+          {/* Create Button - Hide on student "Assigned" tab */}
+          {!( !isTeacherView && currentTab === 2 ) && (
             <Grid size={{ xs: 12, md: 'auto' }}>
               <Button
                 variant="contained"
@@ -932,30 +959,15 @@ export default function StudySets() {
         studySet={selectedStudySet}
       />
 
-      {/* Assign Study Set Dialog - Navigate to classes for now */}
-      {assignDialogOpen && (
-        <Dialog open={assignDialogOpen} onClose={() => setAssignDialogOpen(false)}>
-          <DialogTitle>
-            {t('studySets.assignDialogTitle')}
-            {selectedStudySetForAssign ? ` — ${selectedStudySetForAssign.title}` : ''}
-          </DialogTitle>
-          <DialogContent>
-            <Typography>{t('studySets.assignDialogBody')}</Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setAssignDialogOpen(false)}>{t('common.cancel')}</Button>
-            <Button
-              variant="contained"
-              onClick={() => {
-                setAssignDialogOpen(false)
-                navigate('/dashboard/subjects')
-              }}
-            >
-              {t('studySets.goToClasses')}
-            </Button>
-          </DialogActions>
-        </Dialog>
-      )}
+      <AssignStudySetToClassDialog
+        open={assignDialogOpen}
+        onClose={() => {
+          setAssignDialogOpen(false)
+          setSelectedStudySetForAssign(null)
+        }}
+        onSuccess={fetchStudySets}
+        studySet={selectedStudySetForAssign}
+      />
 
       {/* Content Editor Dialog */}
       <StudySetContentEditor

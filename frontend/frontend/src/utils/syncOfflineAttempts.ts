@@ -1,5 +1,6 @@
 import { getUnsyncedAttempts, markAttemptsAsSynced, deleteSyncedAttempts } from './offlineStorage'
 import { API_URL } from '../api/studySetsApi'
+import { redirectToLogin } from '../api/authApi'
 
 function getAuthHeaders(): HeadersInit {
   return { 'Content-Type': 'application/json' }
@@ -29,6 +30,7 @@ export async function syncOfflineAttempts(): Promise<{ synced: number; failed: n
     })
 
     if (!response.ok) {
+      if (response.status === 401) redirectToLogin()
       throw new Error('Failed to sync attempts')
     }
 

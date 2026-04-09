@@ -4,7 +4,7 @@ import { useParams, Link as RouterLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
 import { translateSubjectOrClassName } from '../utils/recommendationI18n'
-import { formatShortLocaleDate } from '../utils/localeDate'
+import { formatDueDateTime, isDuePast } from '../utils/assignmentDisplay'
 import { getClasses, getClassStudents, removeStudentFromClass, getClassAssignments, getClassStudentsProgress, getLeaderboard, type ClassOut, type Student, type Assignment, type StudentProgressDetail, type LeaderboardResponse } from '../api/studySetsApi'
 import { getUserRole } from '../api/authApi'
 import ClassIcon from '@mui/icons-material/Class'
@@ -564,9 +564,27 @@ export default function ClassDetail() {
                       </TableCell>
                       <TableCell>{assignment.type}</TableCell>
                       <TableCell>
-                        {assignment.due_date
-                          ? formatShortLocaleDate(assignment.due_date, i18n.language, t('common.never'))
-                          : t('common.noDueDate')}
+                        {assignment.due_date ? (
+                          <Box>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                color: isDuePast(assignment.due_date) ? 'error.main' : 'text.primary',
+                                fontWeight: isDuePast(assignment.due_date) ? 600 : 400,
+                              }}
+                            >
+                              {formatDueDateTime(assignment.due_date, i18n.language)}
+                              {isDuePast(assignment.due_date) ? ` · ${t('dashboard.dueOverdue')}` : ''}
+                            </Typography>
+                            {assignment.time_limit_minutes != null && assignment.time_limit_minutes > 0 ? (
+                              <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+                                {t('dashboard.sessionTimeLimit', { count: assignment.time_limit_minutes })}
+                              </Typography>
+                            ) : null}
+                          </Box>
+                        ) : (
+                          t('common.noDueDate')
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}

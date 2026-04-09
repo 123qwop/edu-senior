@@ -20,48 +20,64 @@ import {
   Radio,
   InputAdornment,
 } from '@mui/material'
-import { createAssignment, getStudySets, type StudySetOut } from '../api/studySetsApi'
+import { createAssignment, getClasses, type StudySetOut, type ClassOut } from '../api/studySetsApi'
 
-interface AddAssignmentDialogProps {
+interface AssignStudySetToClassDialogProps {
   open: boolean
   onClose: () => void
   onSuccess: () => void
-  classId: number
+  studySet: StudySetOut | null
 }
 
-export default function AddAssignmentDialog({ open, onClose, onSuccess, classId }: AddAssignmentDialogProps) {
+export default function AssignStudySetToClassDialog({
+  open,
+  onClose,
+  onSuccess,
+  studySet,
+}: AssignStudySetToClassDialogProps) {
   const { t } = useTranslation()
-  const [studySets, setStudySets] = useState<StudySetOut[]>([])
-  const [selectedSetId, setSelectedSetId] = useState<number | ''>('')
+  const [classes, setClasses] = useState<ClassOut[]>([])
+  const [classId, setClassId] = useState<number | ''>('')
   const [dueDate, setDueDate] = useState('')
   const [timeLimitMinutes, setTimeLimitMinutes] = useState('')
   const [feedbackMode, setFeedbackMode] = useState<'immediate' | 'end_only'>('end_only')
   const [loading, setLoading] = useState(false)
-  const [loadingSets, setLoadingSets] = useState(false)
+  const [loadingClasses, setLoadingClasses] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (open) {
-      fetchStudySets()
+    if (!open) return
+    let cancelled = false
+    setLoadingClasses(true)
+    setError(null)
+    getClasses()
+      .then((data) => {
+        if (!cancelled) setClasses(data)
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : t('assignDialog.loadClassesFailed'))
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingClasses(false)
+      })
+    return () => {
+      cancelled = true
     }
-  }, [open])
+  }, [open, t])
 
-  const fetchStudySets = async () => {
-    try {
-      setLoadingSets(true)
+  useEffect(() => {
+    if (open) {
+      setClassId('')
+      setDueDate('')
+      setTimeLimitMinutes('')
+      setFeedbackMode('end_only')
       setError(null)
-      const data = await getStudySets()
-      setStudySets(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load study sets')
-    } finally {
-      setLoadingSets(false)
     }
-  }
+  }, [open, studySet?.id])
 
   const handleSubmit = async () => {
-    if (!selectedSetId) {
-      setError(t('assignDialog.errorSelectSet'))
+    if (!studySet || !classId) {
+      setError(t('assignDialog.errorSelectClass'))
       return
     }
 
@@ -79,22 +95,17 @@ export default function AddAssignmentDialog({ open, onClose, onSuccess, classId 
       setLoading(true)
       setError(null)
 
-      await createAssignment(classId, {
-        set_id: typeof selectedSetId === 'number' ? selectedSetId : parseInt(selectedSetId as string, 10),
-        due_date: dueDate || undefined,
+      await createAssignment(typeof classId === 'number' ? classId : parseInt(String(classId), 10), {
+        set_id: studySet.id,
+        due_date: dueDate.trim() || undefined,
         time_limit_minutes: timeLimitParsed,
         practice_feedback_mode: feedbackMode,
       })
 
-      setSelectedSetId('')
-      setDueDate('')
-      setTimeLimitMinutes('')
-      setFeedbackMode('end_only')
-
       onSuccess()
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create assignment')
+      setError(err instanceof Error ? err.message : t('assignDialog.submitFailed'))
     } finally {
       setLoading(false)
     }
@@ -102,10 +113,6 @@ export default function AddAssignmentDialog({ open, onClose, onSuccess, classId 
 
   const handleClose = () => {
     if (!loading) {
-      setSelectedSetId('')
-      setDueDate('')
-      setTimeLimitMinutes('')
-      setFeedbackMode('end_only')
       setError(null)
       onClose()
     }
@@ -113,31 +120,34 @@ export default function AddAssignmentDialog({ open, onClose, onSuccess, classId 
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{t('assignDialog.title')}</DialogTitle>
+      <DialogTitle>
+        {t('assignToClassDialog.title')}
+        {studySet ? ` — ${studySet.title}` : ''}
+      </DialogTitle>
       <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: 1 }}>
           <Typography variant="body2" color="text.secondary">
-            {t('assignDialog.description')}
+            {t('assignToClassDialog.intro')}
           </Typography>
 
-          {loadingSets ? (
+          {loadingClasses ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
               <CircularProgress />
             </Box>
           ) : (
             <FormControl fullWidth required>
-              <InputLabel>{t('assignDialog.studySet')}</InputLabel>
+              <InputLabel>{t('assignToClassDialog.classLabel')}</InputLabel>
               <Select
-                value={selectedSetId}
-                onChange={(e) => setSelectedSetId(e.target.value as number | '')}
-                label={t('assignDialog.studySet')}
+                value={classId}
+                onChange={(e) => setClassId(e.target.value === '' ? '' : Number(e.target.value))}
+                label={t('assignToClassDialog.classLabel')}
               >
-                {studySets.length === 0 ? (
-                  <MenuItem disabled>{t('assignDialog.noSets')}</MenuItem>
+                {classes.length === 0 ? (
+                  <MenuItem disabled>{t('assignToClassDialog.noClasses')}</MenuItem>
                 ) : (
-                  studySets.map((set) => (
-                    <MenuItem key={set.id} value={set.id}>
-                      {set.title} {set.subject && `(${set.subject})`}
+                  classes.map((c) => (
+                    <MenuItem key={c.id} value={c.id}>
+                      {c.class_name}
                     </MenuItem>
                   ))
                 )}
@@ -151,9 +161,7 @@ export default function AddAssignmentDialog({ open, onClose, onSuccess, classId 
             fullWidth
             value={dueDate}
             onChange={(e) => setDueDate(e.target.value)}
-            InputLabelProps={{
-              shrink: true,
-            }}
+            InputLabelProps={{ shrink: true }}
             helperText={t('assignDialog.dueHelper')}
           />
 
@@ -194,11 +202,11 @@ export default function AddAssignmentDialog({ open, onClose, onSuccess, classId 
             </RadioGroup>
           </FormControl>
 
-          {error && (
-            <Alert severity="error" sx={{ mt: 1 }}>
+          {error ? (
+            <Alert severity="error" sx={{ mt: 0.5 }}>
               {error}
             </Alert>
-          )}
+          ) : null}
         </Box>
       </DialogContent>
       <DialogActions>
@@ -208,7 +216,7 @@ export default function AddAssignmentDialog({ open, onClose, onSuccess, classId 
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={loading || !selectedSetId || loadingSets}
+          disabled={loading || !studySet || !classId || loadingClasses}
         >
           {loading ? t('assignDialog.submitting') : t('assignDialog.submit')}
         </Button>

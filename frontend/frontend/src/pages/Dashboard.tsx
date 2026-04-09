@@ -19,7 +19,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications'
 import CloudDoneIcon from '@mui/icons-material/CloudDone'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import LightbulbIcon from '@mui/icons-material/Lightbulb'
-import { getMe } from '../api/authApi'
+import { getMe, getUserRole } from '../api/authApi'
 import { translateBadgeName } from '../utils/badgeI18n'
 import {
   getDashboardStats,
@@ -28,10 +28,12 @@ import {
   getNextRecommendation,
   getLeaderboard,
   getStreaks,
+  getRuleBasedRecommendations,
   type DashboardStats as DashboardStatsType,
   type DashboardAssignment,
   type Recommendation,
   type NextRecommendation,
+  type RuleBasedRecommendationItem,
   type LeaderboardResponse,
   type StreaksResponse,
 } from '../api/studySetsApi'
@@ -40,12 +42,7 @@ import {
   recommendationTopicChipLabel,
   translateDifficulty,
 } from '../utils/recommendationI18n'
-
-function dateLocaleForI18n(lng: string) {
-  if (lng === 'kz' || lng.startsWith('kk')) return 'kk-KZ'
-  if (lng === 'ru' || lng.startsWith('ru')) return 'ru-RU'
-  return 'en-US'
-}
+import { formatDueDateTime, isDuePast } from '../utils/assignmentDisplay'
 
 export default function Dashboard() {
   const { t, i18n } = useTranslation()
@@ -56,6 +53,8 @@ export default function Dashboard() {
   const [assignments, setAssignments] = useState<DashboardAssignment[]>([])
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
   const [nextRecommendation, setNextRecommendation] = useState<NextRecommendation | null>(null)
+  /** Rule-based picks from GET /study-sets/recommendations/me (not Gemini). */
+  const [ruleBasedRecs, setRuleBasedRecs] = useState<RuleBasedRecommendationItem[]>([])
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardResponse>({ leaderboard: [], current_user_rank: null })
   const [streaksData, setStreaksData] = useState<StreaksResponse>({ streak: 0, badges: [], next_badge: null })
   const [selectedClassId] = useState<number | undefined>(undefined)
@@ -80,36 +79,58 @@ export default function Dashboard() {
       } else {
         setFirstName(i18n.t('dashboard.defaultUserName'))
       }
-      if (userData.role) {
-        setUserRole(userData.role)
+      const rawRole = userData.role ?? getUserRole()
+      if (rawRole) {
+        setUserRole(String(rawRole).toLowerCase().trim())
       }
     } catch (err) {
       console.error('Failed to fetch user data:', err)
+      const cached = getUserRole()
+      if (cached) {
+        setUserRole(String(cached).toLowerCase().trim())
+      }
     }
   }
 
   const fetchDashboardData = async () => {
+    const role = (userRole || getUserRole() || '').toLowerCase()
     try {
-      if (userRole === 'admin') {
+      if (role === 'admin') {
         setLoading(false)
         return
       }
       setLoading(true)
-      const [statsData, assignmentsData, recommendationsData, nextRecData, leaderboardDataResult, streaksDataResult] = await Promise.all([
+      const isStudent = role === 'student'
+
+      const settled = await Promise.allSettled([
         getDashboardStats(),
-        userRole === 'student' ? getDashboardAssignments() : Promise.resolve([]),
-        userRole === 'student' ? getRecommendations() : Promise.resolve([]),
-        userRole === 'student' ? getNextRecommendation() : Promise.resolve(null),
-        userRole === 'student' ? getLeaderboard(selectedClassId) : Promise.resolve({ leaderboard: [], current_user_rank: null }),
-        userRole === 'student' ? getStreaks() : Promise.resolve({ streak: 0, badges: [], next_badge: null }),
+        isStudent ? getDashboardAssignments() : Promise.resolve([] as DashboardAssignment[]),
+        isStudent ? getRecommendations() : Promise.resolve([] as Recommendation[]),
+        isStudent ? getNextRecommendation() : Promise.resolve(null),
+        isStudent ? getRuleBasedRecommendations() : Promise.resolve([] as RuleBasedRecommendationItem[]),
+        isStudent ? getLeaderboard(selectedClassId) : Promise.resolve({ leaderboard: [], current_user_rank: null }),
+        isStudent ? getStreaks() : Promise.resolve({ streak: 0, badges: [], next_badge: null }),
       ])
 
-      setStats(statsData)
-      setAssignments(assignmentsData)
-      setRecommendations(recommendationsData)
-      setNextRecommendation(nextRecData)
-      setLeaderboardData(leaderboardDataResult)
-      setStreaksData(streaksDataResult)
+      const val = <T,>(i: number, fallback: T): T =>
+        settled[i]?.status === 'fulfilled' ? (settled[i] as PromiseFulfilledResult<T>).value : fallback
+
+      if (settled[0]?.status === 'rejected') {
+        console.error('Dashboard stats failed:', settled[0].reason)
+      }
+      setStats(val(0, {} as DashboardStatsType))
+      if (settled[1]?.status === 'rejected') console.error('Dashboard assignments failed:', settled[1].reason)
+      setAssignments(val(1, []))
+      if (settled[2]?.status === 'rejected') console.error('Dashboard recommendations failed:', settled[2].reason)
+      setRecommendations(val(2, []))
+      if (settled[3]?.status === 'rejected') console.error('Next recommendation failed:', settled[3].reason)
+      setNextRecommendation(val(3, null))
+      const rawRule = val(4, [] as RuleBasedRecommendationItem[])
+      setRuleBasedRecs(Array.isArray(rawRule) ? rawRule : [])
+      if (settled[5]?.status === 'rejected') console.error('Leaderboard failed:', settled[5].reason)
+      setLeaderboardData(val(5, { leaderboard: [], current_user_rank: null }))
+      if (settled[6]?.status === 'rejected') console.error('Streaks failed:', settled[6].reason)
+      setStreaksData(val(6, { streak: 0, badges: [], next_badge: null }))
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err)
     } finally {
@@ -152,8 +173,12 @@ export default function Dashboard() {
     }
   }
 
-  const handleStartAssignment = (setId: number) => {
-    navigate(`/dashboard/study-sets?setId=${setId}`)
+  const handleStartAssignment = (setId: number, assignmentId?: number) => {
+    if (assignmentId != null) {
+      navigate(`/dashboard/study-sets/${setId}/practice?assignmentId=${assignmentId}`)
+    } else {
+      navigate(`/dashboard/study-sets?setId=${setId}`)
+    }
   }
 
   const handlePracticeRecommendation = (setId: number) => {
@@ -164,9 +189,9 @@ export default function Dashboard() {
     if (assignments.length > 0) {
       const inProgress = assignments.find(a => a.status === 'In progress')
       if (inProgress) {
-        handleStartAssignment(inProgress.set_id)
+        handleStartAssignment(inProgress.set_id, inProgress.id)
       } else {
-        handleStartAssignment(assignments[0].set_id)
+        handleStartAssignment(assignments[0].set_id, assignments[0].id)
       }
     } else if (recommendations.length > 0) {
       handlePracticeRecommendation(recommendations[0].set_id)
@@ -331,7 +356,7 @@ export default function Dashboard() {
             ) : assignments.length > 0 ? (
               <>
                 <Stack spacing={2}>
-                  {assignments.slice(0, 5).map((assignment) => (
+                  {assignments.slice(0, 10).map((assignment) => (
                     <Box
                       key={assignment.id}
                       sx={{
@@ -348,11 +373,29 @@ export default function Dashboard() {
                           {assignment.title}
                         </Typography>
                         {assignment.due && (
-                          <Typography variant="body2" sx={{ color: 'neutral.500' }}>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              color:
+                                isDuePast(assignment.due) && assignment.status !== 'Completed'
+                                  ? 'error.main'
+                                  : 'neutral.600',
+                              fontWeight:
+                                isDuePast(assignment.due) && assignment.status !== 'Completed' ? 600 : 400,
+                            }}
+                          >
                             {t('common.due')}{' '}
-                            {new Date(assignment.due).toLocaleDateString(dateLocaleForI18n(i18n.language))}
+                            {formatDueDateTime(assignment.due, i18n.language)}
+                            {isDuePast(assignment.due) && assignment.status !== 'Completed'
+                              ? ` · ${t('dashboard.dueOverdue')}`
+                              : ''}
                           </Typography>
                         )}
+                        {assignment.time_limit_minutes != null && assignment.time_limit_minutes > 0 ? (
+                          <Typography variant="body2" sx={{ color: 'neutral.500', mt: 0.25 }}>
+                            {t('dashboard.sessionTimeLimit', { count: assignment.time_limit_minutes })}
+                          </Typography>
+                        ) : null}
                       </Box>
                       <Stack direction="row" spacing={2} alignItems="center">
                         <Chip
@@ -364,7 +407,7 @@ export default function Dashboard() {
                           variant="outlined"
                           size="small"
                           startIcon={<PlayArrowIcon />}
-                          onClick={() => handleStartAssignment(assignment.set_id)}
+                          onClick={() => handleStartAssignment(assignment.set_id, assignment.id)}
                         >
                           {assignment.status === 'Completed'
                             ? t('common.review')
@@ -376,19 +419,22 @@ export default function Dashboard() {
                     </Box>
                   ))}
                 </Stack>
-                <Button
-                  component={RouterLink}
-                  to="/dashboard/subjects"
-                  sx={{ mt: 2 }}
-                  size="small"
-                >
-                  {t('dashboard.viewAllInMyClasses')}
-                </Button>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 2 }} alignItems="flex-start">
+                  <Button component={RouterLink} to="/dashboard/study-sets?tab=assigned" size="small" variant="contained">
+                    {t('dashboard.viewAllAssignments')}
+                  </Button>
+                  <Button component={RouterLink} to="/dashboard/subjects" size="small" variant="outlined">
+                    {t('dashboard.viewAllInMyClasses')}
+                  </Button>
+                </Stack>
               </>
             ) : (
               <Box sx={{ textAlign: 'center', py: 4 }}>
-                <Typography variant="body2" sx={{ color: 'neutral.500' }}>
+                <Typography variant="body2" sx={{ color: 'neutral.500', mb: 1 }}>
                   {t('dashboard.noAssignments')}
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'neutral.400', display: 'block', maxWidth: 420, mx: 'auto' }}>
+                  {t('dashboard.noAssignmentsStudentHint')}
                 </Typography>
               </Box>
             )}
@@ -474,6 +520,57 @@ export default function Dashboard() {
                   </Stack>
                 </Box>
               </Stack>
+            </Paper>
+          )}
+
+          {!isTeacherView && (
+            <Paper elevation={0} sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700', mb: 1 }}>
+                {t('dashboard.ruleBasedTitle')}
+              </Typography>
+              {ruleBasedRecs.length === 0 ? (
+                <Typography variant="body2" sx={{ color: 'neutral.500' }}>
+                  {t('dashboard.ruleBasedFallback')}
+                </Typography>
+              ) : (
+                <Stack spacing={2}>
+                  {ruleBasedRecs.map((rec) => (
+                    <Box
+                      key={rec.id}
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        p: 2,
+                        bgcolor: 'neutral.50',
+                        borderRadius: 2,
+                        flexWrap: 'wrap',
+                        gap: 1,
+                      }}
+                    >
+                      <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+                        <Typography variant="body1" sx={{ fontWeight: 600, color: 'neutral.700', mb: 0.5 }}>
+                          {rec.title}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: 'neutral.500' }}>
+                          {rec.reason}
+                        </Typography>
+                      </Box>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        {rec.subject ? <Chip label={rec.subject} size="small" variant="outlined" /> : null}
+                        {rec.level ? <Chip label={rec.level} size="small" /> : null}
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => navigate(`/dashboard/study-sets/${rec.id}/practice`)}
+                        >
+                          {t('common.practice')}
+                        </Button>
+                      </Stack>
+                    </Box>
+                  ))}
+                </Stack>
+              )}
             </Paper>
           )}
 

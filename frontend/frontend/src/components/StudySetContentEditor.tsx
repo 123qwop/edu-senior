@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogTitle,
@@ -18,7 +19,6 @@ import {
   RadioGroup,
   FormControlLabel,
   Radio,
-  Divider,
   Alert,
   CircularProgress,
 } from '@mui/material'
@@ -26,6 +26,8 @@ import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { getStudySetQuestions, addQuestion, updateQuestion, deleteQuestion, type Question, type StudySetOut } from '../api/studySetsApi'
+import MathText from './MathText'
+import MathTypingHelp from './MathTypingHelp'
 
 interface StudySetContentEditorProps {
   open: boolean
@@ -34,6 +36,7 @@ interface StudySetContentEditorProps {
 }
 
 export default function StudySetContentEditor({ open, onClose, studySet }: StudySetContentEditorProps) {
+  const { t } = useTranslation()
   const [questions, setQuestions] = useState<Question[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -48,6 +51,7 @@ export default function StudySetContentEditor({ open, onClose, studySet }: Study
   const [definition, setDefinition] = useState('')
   const [problem, setProblem] = useState('')
   const [solution, setSolution] = useState('')
+  const [explanation, setExplanation] = useState('')
 
   useEffect(() => {
     if (open && studySet) {
@@ -78,6 +82,7 @@ export default function StudySetContentEditor({ open, onClose, studySet }: Study
     setDefinition('')
     setProblem('')
     setSolution('')
+    setExplanation('')
     setEditingQuestion(null)
     setShowAddForm(false)
   }
@@ -106,6 +111,7 @@ export default function StudySetContentEditor({ open, onClose, studySet }: Study
       setProblem(question.content)
       setSolution(question.correct_answer)
     }
+    setExplanation(question.explanation?.trim() ? question.explanation : '')
     setShowAddForm(true)
   }
 
@@ -193,6 +199,13 @@ export default function StudySetContentEditor({ open, onClose, studySet }: Study
         questionData.solution = solution
       }
 
+      if (studySet.type !== 'Flashcards') {
+        const ex = explanation.trim()
+        questionData.explanation = ex.length > 0 ? ex : null
+      } else if (editingQuestion) {
+        questionData.explanation = editingQuestion.explanation ?? null
+      }
+
       if (editingQuestion) {
         await updateQuestion(studySet.id, editingQuestion.id, questionData)
       } else {
@@ -237,6 +250,7 @@ export default function StudySetContentEditor({ open, onClose, studySet }: Study
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
                 {editingQuestion ? 'Edit' : 'Add'} {studySet.type === 'Flashcards' ? 'Flashcard' : studySet.type === 'Quiz' ? 'Question' : 'Problem'}
               </Typography>
+              <MathTypingHelp defaultExpanded />
 
               {studySet.type === 'Flashcards' && (
                 <Stack spacing={2}>
@@ -246,7 +260,8 @@ export default function StudySetContentEditor({ open, onClose, studySet }: Study
                     fullWidth
                     value={term}
                     onChange={(e) => setTerm(e.target.value)}
-                    placeholder="e.g., Photosynthesis"
+                    placeholder="e.g., Photosynthesis or $E = mc^2$"
+                    helperText={t('studySets.mathFieldHint')}
                   />
                   <TextField
                     label="Definition"
@@ -256,7 +271,8 @@ export default function StudySetContentEditor({ open, onClose, studySet }: Study
                     rows={3}
                     value={definition}
                     onChange={(e) => setDefinition(e.target.value)}
-                    placeholder="e.g., The process by which plants convert light energy into chemical energy"
+                    placeholder="e.g., The process… or $\\int_0^1 f(x)\\,dx$"
+                    helperText={t('studySets.mathFieldHint')}
                   />
                 </Stack>
               )}
@@ -284,7 +300,8 @@ export default function StudySetContentEditor({ open, onClose, studySet }: Study
                     rows={2}
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
-                    placeholder="Enter your question"
+                    placeholder="e.g. What is $2+2$? or Factor $x^2-1$."
+                    helperText={t('studySets.mathFieldHint')}
                   />
 
                   {questionType === 'multiple_choice' && (
@@ -303,7 +320,8 @@ export default function StudySetContentEditor({ open, onClose, studySet }: Study
                             newOptions[idx] = e.target.value
                             setOptions(newOptions)
                           }}
-                          placeholder={`Option ${idx + 1}`}
+                          placeholder={`Option ${idx + 1} (e.g. $\\frac{1}{2}$)`}
+                          helperText={idx === 0 ? t('studySets.mathFieldHint') : undefined}
                           sx={{ mb: 1 }}
                         />
                       ))}
@@ -352,9 +370,21 @@ export default function StudySetContentEditor({ open, onClose, studySet }: Study
                       fullWidth
                       value={correctAnswer}
                       onChange={(e) => setCorrectAnswer(e.target.value)}
-                      placeholder="Enter the correct answer"
+                      placeholder="e.g. $42$ or $\\pi$"
+                      helperText={t('studySets.mathFieldHint')}
                     />
                   )}
+
+                  <TextField
+                    label={t('studySets.questionExplanationOptional')}
+                    fullWidth
+                    multiline
+                    minRows={2}
+                    value={explanation}
+                    onChange={(e) => setExplanation(e.target.value)}
+                    placeholder={t('studySets.mathFieldHint')}
+                    helperText={t('studySets.questionExplanationOptionalHint')}
+                  />
                 </Stack>
               )}
 
@@ -368,7 +398,8 @@ export default function StudySetContentEditor({ open, onClose, studySet }: Study
                     rows={4}
                     value={problem}
                     onChange={(e) => setProblem(e.target.value)}
-                    placeholder="Enter the problem statement"
+                    placeholder="e.g. Evaluate $$\\int_0^1 x\\,dx$$"
+                    helperText={t('studySets.mathFieldHint')}
                   />
                   <TextField
                     label="Solution"
@@ -378,7 +409,18 @@ export default function StudySetContentEditor({ open, onClose, studySet }: Study
                     rows={4}
                     value={solution}
                     onChange={(e) => setSolution(e.target.value)}
-                    placeholder="Enter the solution with steps"
+                    placeholder="e.g. $\\frac{1}{2}$ — show steps in words + math"
+                    helperText={t('studySets.mathFieldHint')}
+                  />
+                  <TextField
+                    label={t('studySets.questionExplanationOptional')}
+                    fullWidth
+                    multiline
+                    minRows={2}
+                    value={explanation}
+                    onChange={(e) => setExplanation(e.target.value)}
+                    placeholder={t('studySets.mathFieldHint')}
+                    helperText={t('studySets.questionExplanationOptionalHint')}
                   />
                 </Stack>
               )}
@@ -413,39 +455,51 @@ export default function StudySetContentEditor({ open, onClose, studySet }: Study
                       </Typography>
                       {question.type === 'flashcard' ? (
                         <Box>
-                          <Typography variant="body1" sx={{ fontWeight: 600, mb: 1 }}>
-                            Term: {question.term}
-                          </Typography>
-                          <Typography variant="body2" sx={{ color: 'neutral.600' }}>
-                            Definition: {question.definition}
-                          </Typography>
+                          <Box sx={{ fontWeight: 600, mb: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.5 }}>
+                            <Typography component="span" variant="body1" sx={{ fontWeight: 600 }}>
+                              Term:
+                            </Typography>
+                            <MathText text={question.term ?? ''} />
+                          </Box>
+                          <Box sx={{ color: 'neutral.600', display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.5 }}>
+                            <Typography component="span" variant="body2" sx={{ fontWeight: 600 }}>
+                              Definition:
+                            </Typography>
+                            <MathText text={question.definition ?? ''} />
+                          </Box>
                         </Box>
                       ) : question.type === 'problem' ? (
                         <Box>
-                          <Typography variant="body1" sx={{ fontWeight: 600, mb: 1 }}>
-                            Problem: {question.content}
-                          </Typography>
-                          <Typography variant="body2" sx={{ color: 'neutral.600' }}>
-                            Solution: {question.correct_answer}
-                          </Typography>
+                          <Box sx={{ fontWeight: 600, mb: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.5 }}>
+                            <Typography component="span" variant="body1" sx={{ fontWeight: 600 }}>
+                              Problem:
+                            </Typography>
+                            <MathText text={question.content} block />
+                          </Box>
+                          <Box sx={{ color: 'neutral.600', display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', gap: 0.5 }}>
+                            <Typography component="span" variant="body2" sx={{ fontWeight: 600 }}>
+                              Solution:
+                            </Typography>
+                            <MathText text={question.correct_answer} />
+                          </Box>
                         </Box>
                       ) : (
                         <Box>
-                          <Typography variant="body1" sx={{ fontWeight: 600, mb: 1 }}>
-                            {question.content}
-                          </Typography>
+                          <Box sx={{ mb: 1 }}>
+                            <MathText text={question.content} block />
+                          </Box>
                           {question.options && question.options.length > 0 && (
                             <Stack spacing={0.5} sx={{ mt: 1 }}>
                               {question.options.map((opt, optIdx) => (
-                                <Typography key={optIdx} variant="body2" sx={{ color: 'neutral.600' }}>
-                                  {optIdx + 1}. {opt}
+                                <Typography key={optIdx} component="div" variant="body2" sx={{ color: 'neutral.600' }}>
+                                  {optIdx + 1}. <MathText text={opt} />
                                 </Typography>
                               ))}
                             </Stack>
                           )}
-                          <Typography variant="body2" sx={{ color: 'success.main', mt: 1, fontWeight: 600 }}>
-                            Correct Answer: {question.correct_answer}
-                          </Typography>
+                          <Box sx={{ color: 'success.main', mt: 1, fontWeight: 600, display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'baseline' }}>
+                            <span>Correct Answer:</span> <MathText text={String(question.correct_answer)} />
+                          </Box>
                         </Box>
                       )}
                     </Box>

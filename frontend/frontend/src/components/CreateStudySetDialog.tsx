@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { createStudySet, getClasses, type StudySetCreate, type ClassOut } from '../api/studySetsApi'
 import {
   Dialog,
@@ -22,9 +23,11 @@ import {
   Autocomplete,
   Chip,
   Divider,
+  InputAdornment,
 } from '@mui/material'
 import Grid from '@mui/material/Grid'
 import { isTeacher } from '../api/authApi'
+import MathTypingHelp from './MathTypingHelp'
 
 interface CreateStudySetDialogProps {
   open: boolean
@@ -34,9 +37,31 @@ interface CreateStudySetDialogProps {
 
 type StudySetType = 'Flashcards' | 'Quiz' | 'Problem set'
 type QuestionType = 'Multiple choice' | 'True/False' | 'Short answer'
+type ListVisibility = 'public' | 'private'
+
+const SUBJECT_I18N: Record<string, string> = {
+  Mathematics: 'studySets.subjectMathematics',
+  Physics: 'studySets.subjectPhysics',
+  Chemistry: 'studySets.subjectChemistry',
+  Biology: 'studySets.subjectBiology',
+  English: 'studySets.subjectEnglish',
+  History: 'studySets.subjectHistory',
+}
+
+const LEVEL_I18N: Record<string, string> = {
+  'Grade 7': 'classes.levelGrade7',
+  'Grade 8': 'classes.levelGrade8',
+  'Grade 9': 'classes.levelGrade9',
+  'Grade 10': 'classes.levelGrade10',
+  'Grade 11': 'classes.levelGrade11',
+  'Grade 12': 'classes.levelGrade12',
+  University: 'classes.levelUniversity',
+}
 
 export default function CreateStudySetDialog({ open, onClose, onSuccess }: CreateStudySetDialogProps) {
+  const { t } = useTranslation()
   const isTeacherView = isTeacher()
+  const tDlg = (key: string, options?: Record<string, unknown>) => t(`studySets.createDialog.${key}`, options)
 
   // Section 1 - Basic Info
   const [title, setTitle] = useState('')
@@ -45,6 +70,7 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
   const [level, setLevel] = useState('')
   const [description, setDescription] = useState('')
   const [tags, setTags] = useState<string[]>([])
+  const [listVisibility, setListVisibility] = useState<ListVisibility>('private')
 
   // Section 2 - Initial Content
   // Flashcards
@@ -70,6 +96,8 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
   const [selectedClass, setSelectedClass] = useState('')
   const [assignToAll, setAssignToAll] = useState(false)
   const [selectedStudents, setSelectedStudents] = useState<string[]>([])
+  const [assignmentDueDate, setAssignmentDueDate] = useState('')
+  const [assignmentTimeLimit, setAssignmentTimeLimit] = useState('')
 
   // Validation errors
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
@@ -78,7 +106,7 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
   const subjects = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'History']
   const levels = ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12', 'University']
   const [classes, setClasses] = useState<ClassOut[]>([])
-  const [students, setStudents] = useState<string[]>([])
+  const [students] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -97,23 +125,23 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
     const newErrors: { [key: string]: string } = {}
 
     if (!title.trim()) {
-      newErrors.title = 'Title is required'
+      newErrors.title = tDlg('errTitleRequired')
     }
     if (!type) {
-      newErrors.type = 'Type is required'
+      newErrors.type = tDlg('errTypeRequired')
     }
     if (!subject) {
-      newErrors.subject = 'Subject is required'
+      newErrors.subject = tDlg('errSubjectRequired')
     }
 
     // Validate initial content if any field is filled
     if (type === 'Quiz' && questionText.trim()) {
       if (questionType === 'Multiple choice') {
         if (!option1.trim() || !option2.trim() || !option3.trim() || !option4.trim()) {
-          newErrors.quizOptions = 'All 4 options are required for multiple choice'
+          newErrors.quizOptions = tDlg('errQuizOptionsAll')
         }
         if (!correctOption) {
-          newErrors.correctOption = 'Please select the correct answer'
+          newErrors.correctOption = tDlg('errSelectCorrect')
         }
       }
     }
@@ -172,12 +200,20 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
         level: payload.level || undefined,
         description: payload.description || undefined,
         tags: payload.tags || [],
+        is_public: listVisibility === 'public',
         initialItem: payload.initialItem || undefined,
         assignment: selectedClass
           ? {
-              classId: parseInt(selectedClass),
+              classId: parseInt(selectedClass, 10),
               assignToAll,
-              studentIds: assignToAll ? undefined : selectedStudents.map((s) => parseInt(s)),
+              studentIds: assignToAll ? undefined : selectedStudents.map((s) => parseInt(s, 10)),
+              dueDate: assignmentDueDate.trim() || undefined,
+              timeLimitMinutes: (() => {
+                if (!assignmentTimeLimit.trim()) return undefined
+                const n = parseInt(assignmentTimeLimit.trim(), 10)
+                if (Number.isNaN(n) || n < 1 || n > 1440) return undefined
+                return n
+              })(),
             }
           : undefined,
       }
@@ -186,9 +222,9 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
 
       // Close dialog
       handleClose()
-      
+
       // Show success message
-      alert(`Study set "${createdSet.title}" created successfully!`)
+      alert(tDlg('successCreated', { title: createdSet.title }))
       
       // Refresh the study sets list
       if (onSuccess) {
@@ -196,7 +232,7 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
       }
     } catch (error) {
       console.error('Failed to create study set:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create study set. Please try again.'
+      const errorMessage = error instanceof Error ? error.message : tDlg('createFailedGeneric')
       alert(errorMessage)
     } finally {
       setLoading(false)
@@ -211,6 +247,7 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
     setLevel('')
     setDescription('')
     setTags([])
+    setListVisibility('private')
     setFlashcardTerm('')
     setFlashcardDefinition('')
     setQuestionText('')
@@ -227,6 +264,8 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
     setSelectedClass('')
     setAssignToAll(false)
     setSelectedStudents([])
+    setAssignmentDueDate('')
+    setAssignmentTimeLimit('')
     setErrors({})
     onClose()
   }
@@ -236,25 +275,28 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
       return (
         <Box>
           <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'neutral.700', mb: 2 }}>
-            First item (optional)
+            {tDlg('firstItemOptional')}
           </Typography>
+          <MathTypingHelp />
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
-                label="Term"
+                label={tDlg('termLabel')}
                 value={flashcardTerm}
                 onChange={(e) => setFlashcardTerm(e.target.value)}
                 size="small"
+                helperText={t('studySets.mathFieldHint')}
               />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
-                label="Definition"
+                label={tDlg('definitionLabel')}
                 value={flashcardDefinition}
                 onChange={(e) => setFlashcardDefinition(e.target.value)}
                 size="small"
+                helperText={t('studySets.mathFieldHint')}
               />
             </Grid>
           </Grid>
@@ -266,23 +308,29 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
       return (
         <Box>
           <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'neutral.700', mb: 2 }}>
-            First item (optional)
+            {tDlg('firstItemOptional')}
           </Typography>
+          <MathTypingHelp />
           <Stack spacing={2}>
             <TextField
               fullWidth
-              label="Question text"
+              label={tDlg('questionTextLabel')}
               value={questionText}
               onChange={(e) => setQuestionText(e.target.value)}
               size="small"
-              required={option1.trim() || option2.trim() || option3.trim() || option4.trim()}
+              required={Boolean(option1.trim() || option2.trim() || option3.trim() || option4.trim())}
+              helperText={t('studySets.mathFieldHint')}
             />
             <FormControl fullWidth size="small">
-              <InputLabel>Question type</InputLabel>
-              <Select value={questionType} onChange={(e) => setQuestionType(e.target.value as QuestionType)} label="Question type">
-                <MenuItem value="Multiple choice">Multiple choice</MenuItem>
-                <MenuItem value="True/False">True/False</MenuItem>
-                <MenuItem value="Short answer">Short answer</MenuItem>
+              <InputLabel>{tDlg('questionTypeLabel')}</InputLabel>
+              <Select
+                value={questionType}
+                onChange={(e) => setQuestionType(e.target.value as QuestionType)}
+                label={tDlg('questionTypeLabel')}
+              >
+                <MenuItem value="Multiple choice">{tDlg('questionTypeMultipleChoice')}</MenuItem>
+                <MenuItem value="True/False">{tDlg('questionTypeTrueFalse')}</MenuItem>
+                <MenuItem value="Short answer">{tDlg('questionTypeShortAnswer')}</MenuItem>
               </Select>
             </FormControl>
 
@@ -291,44 +339,61 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
                 <Stack spacing={2}>
                   <TextField
                     fullWidth
-                    label="Option 1"
+                    label={tDlg('optionLabel', { n: 1 })}
                     value={option1}
                     onChange={(e) => setOption1(e.target.value)}
                     size="small"
+                    helperText={t('studySets.mathFieldHint')}
                   />
                   <TextField
                     fullWidth
-                    label="Option 2"
+                    label={tDlg('optionLabel', { n: 2 })}
                     value={option2}
                     onChange={(e) => setOption2(e.target.value)}
                     size="small"
                   />
                   <TextField
                     fullWidth
-                    label="Option 3"
+                    label={tDlg('optionLabel', { n: 3 })}
                     value={option3}
                     onChange={(e) => setOption3(e.target.value)}
                     size="small"
                   />
                   <TextField
                     fullWidth
-                    label="Option 4"
+                    label={tDlg('optionLabel', { n: 4 })}
                     value={option4}
                     onChange={(e) => setOption4(e.target.value)}
                     size="small"
                   />
                 </Stack>
                 <FormControl component="fieldset" sx={{ mt: 2 }}>
-                  <FormLabel component="legend">Correct answer</FormLabel>
+                  <FormLabel component="legend">{tDlg('correctAnswerLegend')}</FormLabel>
                   <RadioGroup
                     row
                     value={correctOption}
                     onChange={(e) => setCorrectOption(e.target.value)}
                   >
-                    <FormControlLabel value="1" control={<Radio size="small" />} label="Option 1" />
-                    <FormControlLabel value="2" control={<Radio size="small" />} label="Option 2" />
-                    <FormControlLabel value="3" control={<Radio size="small" />} label="Option 3" />
-                    <FormControlLabel value="4" control={<Radio size="small" />} label="Option 4" />
+                    <FormControlLabel
+                      value="1"
+                      control={<Radio size="small" />}
+                      label={tDlg('optionLabel', { n: 1 })}
+                    />
+                    <FormControlLabel
+                      value="2"
+                      control={<Radio size="small" />}
+                      label={tDlg('optionLabel', { n: 2 })}
+                    />
+                    <FormControlLabel
+                      value="3"
+                      control={<Radio size="small" />}
+                      label={tDlg('optionLabel', { n: 3 })}
+                    />
+                    <FormControlLabel
+                      value="4"
+                      control={<Radio size="small" />}
+                      label={tDlg('optionLabel', { n: 4 })}
+                    />
                   </RadioGroup>
                 </FormControl>
               </Box>
@@ -336,14 +401,14 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
 
             {questionType === 'True/False' && (
               <FormControl component="fieldset">
-                <FormLabel component="legend">Correct answer</FormLabel>
+                <FormLabel component="legend">{tDlg('correctAnswerLegend')}</FormLabel>
                 <RadioGroup
                   row
                   value={trueFalseAnswer}
                   onChange={(e) => setTrueFalseAnswer(e.target.value)}
                 >
-                  <FormControlLabel value="true" control={<Radio size="small" />} label="True" />
-                  <FormControlLabel value="false" control={<Radio size="small" />} label="False" />
+                  <FormControlLabel value="true" control={<Radio size="small" />} label={tDlg('trueChoice')} />
+                  <FormControlLabel value="false" control={<Radio size="small" />} label={tDlg('falseChoice')} />
                 </RadioGroup>
               </FormControl>
             )}
@@ -351,10 +416,11 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
             {questionType === 'Short answer' && (
               <TextField
                 fullWidth
-                label="Expected answer"
+                label={tDlg('expectedAnswerLabel')}
                 value={shortAnswer}
                 onChange={(e) => setShortAnswer(e.target.value)}
                 size="small"
+                helperText={t('studySets.mathFieldHint')}
               />
             )}
           </Stack>
@@ -366,26 +432,29 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
       return (
         <Box>
           <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'neutral.700', mb: 2 }}>
-            First item (optional)
+            {tDlg('firstItemOptional')}
           </Typography>
+          <MathTypingHelp />
           <Stack spacing={2}>
             <TextField
               fullWidth
-              label="Problem statement"
+              label={tDlg('problemStatementLabel')}
               value={problemStatement}
               onChange={(e) => setProblemStatement(e.target.value)}
               multiline
               rows={4}
               size="small"
+              helperText={t('studySets.mathFieldHint')}
             />
             <TextField
               fullWidth
-              label="Solution / steps (optional)"
+              label={tDlg('solutionOptionalLabel')}
               value={solution}
               onChange={(e) => setSolution(e.target.value)}
               multiline
               rows={4}
               size="small"
+              helperText={t('studySets.mathFieldHint')}
             />
           </Stack>
         </Box>
@@ -397,43 +466,51 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ fontWeight: 600, color: 'neutral.700' }}>Create study set</DialogTitle>
+      <DialogTitle sx={{ fontWeight: 600, color: 'neutral.700' }}>{tDlg('title')}</DialogTitle>
       <DialogContent>
         <Stack spacing={4}>
           {/* Section 1 - Basic Info */}
           <Box>
             <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700', mb: 2 }}>
-              Basic info
+              {tDlg('basicInfo')}
             </Typography>
             <Stack spacing={2}>
               <TextField
                 fullWidth
-                label="Title"
+                label={tDlg('titleLabel')}
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 required
                 error={!!errors.title}
-                helperText={errors.title || 'e.g. Algebra - Quadratic Equations'}
+                helperText={errors.title || tDlg('titleHelper')}
                 size="small"
               />
 
               <FormControl component="fieldset" required error={!!errors.type}>
-                <FormLabel component="legend">Type</FormLabel>
+                <FormLabel component="legend">{t('studySets.type')}</FormLabel>
                 <RadioGroup row value={type} onChange={(e) => setType(e.target.value as StudySetType)}>
-                  <FormControlLabel value="Flashcards" control={<Radio size="small" />} label="Flashcards" />
-                  <FormControlLabel value="Quiz" control={<Radio size="small" />} label="Quiz" />
-                  <FormControlLabel value="Problem set" control={<Radio size="small" />} label="Problem set" />
+                  <FormControlLabel
+                    value="Flashcards"
+                    control={<Radio size="small" />}
+                    label={t('studySets.typeFlashcards')}
+                  />
+                  <FormControlLabel value="Quiz" control={<Radio size="small" />} label={t('studySets.typeQuiz')} />
+                  <FormControlLabel
+                    value="Problem set"
+                    control={<Radio size="small" />}
+                    label={t('studySets.typeProblemSet')}
+                  />
                 </RadioGroup>
               </FormControl>
 
               <Grid container spacing={2}>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <FormControl fullWidth size="small" required error={!!errors.subject}>
-                    <InputLabel>Subject</InputLabel>
-                    <Select value={subject} onChange={(e) => setSubject(e.target.value)} label="Subject">
+                    <InputLabel>{t('studySets.subject')}</InputLabel>
+                    <Select value={subject} onChange={(e) => setSubject(e.target.value)} label={t('studySets.subject')}>
                       {subjects.map((sub) => (
                         <MenuItem key={sub} value={sub}>
-                          {sub}
+                          {t(SUBJECT_I18N[sub])}
                         </MenuItem>
                       ))}
                     </Select>
@@ -441,12 +518,12 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
                 </Grid>
                 <Grid size={{ xs: 12, sm: 6 }}>
                   <FormControl fullWidth size="small">
-                    <InputLabel>Level</InputLabel>
-                    <Select value={level} onChange={(e) => setLevel(e.target.value)} label="Level">
-                      <MenuItem value="">None</MenuItem>
+                    <InputLabel>{t('classes.level')}</InputLabel>
+                    <Select value={level} onChange={(e) => setLevel(e.target.value)} label={t('classes.level')}>
+                      <MenuItem value="">{tDlg('none')}</MenuItem>
                       {levels.map((lvl) => (
                         <MenuItem key={lvl} value={lvl}>
-                          {lvl}
+                          {t(LEVEL_I18N[lvl])}
                         </MenuItem>
                       ))}
                     </Select>
@@ -456,14 +533,38 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
 
               <TextField
                 fullWidth
-                label="Short description / instructions (optional)"
+                label={tDlg('descriptionLabel')}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 multiline
                 rows={3}
-                helperText="Students will practice factoring quadratics and solving using formula."
+                helperText={tDlg('descriptionHelper')}
                 size="small"
               />
+
+              <FormControl component="fieldset">
+                <FormLabel component="legend">{tDlg('visibilityLabel')}</FormLabel>
+                <RadioGroup
+                  row
+                  value={listVisibility}
+                  onChange={(_, v) => setListVisibility(v as ListVisibility)}
+                >
+                  <FormControlLabel
+                    value="private"
+                    control={<Radio size="small" />}
+                    label={tDlg('visibilityPrivate')}
+                  />
+                  <FormControlLabel
+                    value="public"
+                    control={<Radio size="small" />}
+                    label={tDlg('visibilityPublic')}
+                  />
+                </RadioGroup>
+              </FormControl>
+
+              <Typography variant="caption" sx={{ color: 'neutral.500' }}>
+                {listVisibility === 'public' ? tDlg('visibilityHelpPublic') : tDlg('visibilityHelpPrivate')}
+              </Typography>
 
               <Autocomplete
                 multiple
@@ -477,7 +578,7 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
                   ))
                 }
                 renderInput={(params) => (
-                  <TextField {...params} label="Tags (optional)" placeholder="e.g. exam prep, homework" size="small" />
+                  <TextField {...params} label={tDlg('tagsLabel')} placeholder={tDlg('tagsPlaceholder')} size="small" />
                 )}
               />
             </Stack>
@@ -494,13 +595,13 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
               <Divider />
               <Box>
                 <Typography variant="h6" sx={{ fontWeight: 600, color: 'neutral.700', mb: 2 }}>
-                  Assign now (optional)
+                  {tDlg('assignSectionTitle')}
                 </Typography>
                 <Stack spacing={2}>
                   <FormControl fullWidth size="small">
-                    <InputLabel>Class</InputLabel>
-                    <Select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} label="Class">
-                      <MenuItem value="">None</MenuItem>
+                    <InputLabel>{tDlg('classLabel')}</InputLabel>
+                    <Select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} label={tDlg('classLabel')}>
+                      <MenuItem value="">{tDlg('none')}</MenuItem>
                       {classes.map((cls) => (
                         <MenuItem key={cls.id} value={cls.id.toString()}>
                           {cls.class_name}
@@ -511,6 +612,32 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
 
                   {selectedClass && (
                     <>
+                      <TextField
+                        fullWidth
+                        label={tDlg('dueDateLabel')}
+                        type="datetime-local"
+                        value={assignmentDueDate}
+                        onChange={(e) => setAssignmentDueDate(e.target.value)}
+                        size="small"
+                        InputLabelProps={{ shrink: true }}
+                        helperText={tDlg('dueDateHelper')}
+                      />
+                      <TextField
+                        fullWidth
+                        label={tDlg('timeLimitLabel')}
+                        type="number"
+                        inputProps={{ min: 1, max: 1440 }}
+                        value={assignmentTimeLimit}
+                        onChange={(e) => setAssignmentTimeLimit(e.target.value)}
+                        size="small"
+                        placeholder="30"
+                        helperText={tDlg('timeLimitHelper')}
+                        InputProps={{
+                          endAdornment: (
+                            <InputAdornment position="end">{t('common.minutesAbbr')}</InputAdornment>
+                          ),
+                        }}
+                      />
                       <FormControlLabel
                         control={
                           <Checkbox
@@ -519,7 +646,7 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
                             size="small"
                           />
                         }
-                        label="Assign to all students in this class"
+                        label={tDlg('assignToAllStudents')}
                       />
 
                       {!assignToAll && (
@@ -529,7 +656,7 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
                           value={selectedStudents}
                           onChange={(_, newValue) => setSelectedStudents(newValue)}
                           renderInput={(params) => (
-                            <TextField {...params} label="Specific students" size="small" />
+                            <TextField {...params} label={tDlg('specificStudentsLabel')} size="small" />
                           )}
                           renderTags={(value, getTagProps) =>
                             value.map((option, index) => (
@@ -542,7 +669,7 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
                   )}
 
                   <Typography variant="caption" sx={{ color: 'neutral.500' }}>
-                    You can also assign this set later from the Study set details page.
+                    {tDlg('assignLaterHint')}
                   </Typography>
                 </Stack>
               </Box>
@@ -552,13 +679,12 @@ export default function CreateStudySetDialog({ open, onClose, onSuccess }: Creat
       </DialogContent>
       <DialogActions sx={{ p: 2 }}>
         <Button onClick={handleClose} sx={{ color: 'neutral.700' }} disabled={loading}>
-          Cancel
+          {tDlg('cancel')}
         </Button>
         <Button onClick={handleCreate} variant="contained" sx={{ bgcolor: 'primary.main' }} disabled={loading}>
-          {loading ? 'Creating...' : 'Create set'}
+          {loading ? tDlg('creating') : tDlg('createSet')}
         </Button>
       </DialogActions>
     </Dialog>
   )
 }
-
