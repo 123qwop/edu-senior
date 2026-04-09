@@ -13,6 +13,14 @@ export default function RootLayout() {
         }}
       />
       <Stack.Screen
+        name="register"
+        options={{
+          title: "Register",
+          headerStyle: { backgroundColor: "#2593BE" },
+          headerTintColor: "#fff",
+        }}
+      />
+      <Stack.Screen
         name="index"
         options={{
           title: "Home",
