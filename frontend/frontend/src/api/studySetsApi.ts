@@ -1,3 +1,5 @@
+import { redirectToLogin } from './authApi';
+
 export const API_URL = 'http://localhost:8000';
 
 export interface StudySetCreate {
@@ -21,8 +23,12 @@ export interface StudySetCreate {
     classId?: number;
     assignToAll?: boolean;
     studentIds?: number[];
+    /** ISO datetime from datetime-local (optional) */
     dueDate?: string;
+    /** Optional minutes cap for one practice session */
+    timeLimitMinutes?: number;
   };
+  is_public?: boolean;
 }
 
 export interface StudySetOut {
@@ -40,12 +46,21 @@ export interface StudySetOut {
   is_assigned: boolean;
   is_downloaded: boolean;
   mastery: number | null;
+  is_public?: boolean;
+  is_shared?: boolean;
+  /** immediate = check during practice; end_only = stricter (typical teacher assignment default) */
+  practice_feedback_mode?: 'immediate' | 'end_only';
+  /** When practice opened with ?assignment_id= (server-validated) */
+  active_assignment_id?: number | null;
+  assignment_due_date?: string | null;
+  assignment_time_limit_minutes?: number | null;
 }
 
 export interface QuestionCreate {
   type: string;
   content: string;
   correct_answer: string;
+  explanation?: string | null;
   options?: string[];
   term?: string;
   definition?: string;
@@ -59,6 +74,7 @@ export interface QuestionOut {
   type: string;
   content: string;
   correct_answer: string;
+  explanation?: string | null;
   options?: string[] | null;
   term?: string | null;
   definition?: string | null;
@@ -90,6 +106,9 @@ function getAuthHeaders(): HeadersInit {
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
+    if (response.status === 401) {
+      redirectToLogin();
+    }
     let errorData;
     try {
       errorData = await response.json();
@@ -153,9 +172,17 @@ export async function createStudySet(data: StudySetCreate): Promise<StudySetOut>
 }
 
 // Get single study set
-export async function getStudySet(setId: number): Promise<StudySetOut> {
+export async function getStudySet(
+  setId: number,
+  opts?: { assignmentId?: number }
+): Promise<StudySetOut> {
   try {
-    const response = await fetch(`${API_URL}/study-sets/${setId}`, {
+    const params = new URLSearchParams();
+    if (opts?.assignmentId != null) {
+      params.set('assignment_id', String(opts.assignmentId));
+    }
+    const q = params.toString();
+    const response = await fetch(`${API_URL}/study-sets/${setId}${q ? `?${q}` : ''}`, {
       method: 'GET',
       credentials: 'include',
       headers: getAuthHeaders(),
@@ -303,6 +330,7 @@ export async function removeStudentFromClass(classId: number, studentId: number)
     });
 
     if (!response.ok) {
+      if (response.status === 401) redirectToLogin();
       let errorData;
       try {
         errorData = await response.json();
@@ -355,6 +383,7 @@ export async function deleteClass(classId: number): Promise<void> {
     });
 
     if (!response.ok) {
+      if (response.status === 401) redirectToLogin();
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to delete class');
     }
@@ -369,6 +398,10 @@ export async function deleteClass(classId: number): Promise<void> {
 export interface CreateAssignmentRequest {
   set_id: number;
   due_date?: string;
+  /** Optional max minutes for one practice session (server stores; client enforces timer) */
+  time_limit_minutes?: number | null;
+  /** 'immediate' = students can check answers during practice; 'end_only' = feedback mainly after submit */
+  practice_feedback_mode?: 'immediate' | 'end_only';
 }
 
 // Create an assignment (assign study set to class)
@@ -394,6 +427,7 @@ export interface Assignment {
   assignment_id: number;
   set_id: number;
   due_date: string | null;
+  time_limit_minutes?: number | null;
   assigned_by: number;
   title: string;
   subject: string | null;
@@ -449,6 +483,53 @@ export interface StudySetUpdate {
   is_public?: boolean;
 }
 
+/** Class assignment row for teacher edit (due / time limit). */
+export interface StudySetAssignmentTeacherRow {
+  assignment_id: number;
+  class_id: number;
+  class_name: string;
+  due_date: string | null;
+  time_limit_minutes: number | null;
+}
+
+export async function getStudySetAssignmentsForTeacher(
+  setId: number,
+): Promise<StudySetAssignmentTeacherRow[]> {
+  try {
+    const response = await fetch(`${API_URL}/study-sets/set/${setId}/assignments`, {
+      method: 'GET',
+      credentials: 'include',
+      headers: getAuthHeaders(),
+    });
+    return handleResponse<StudySetAssignmentTeacherRow[]>(response);
+  } catch (err) {
+    if (err instanceof TypeError && err.message === 'Failed to fetch') {
+      throw new Error('Cannot connect to server. Please make sure the backend is running on http://localhost:8000');
+    }
+    throw err;
+  }
+}
+
+export async function patchStudySetAssignment(
+  assignmentId: number,
+  data: { due_date?: string | null; time_limit_minutes?: number | null },
+): Promise<StudySetAssignmentTeacherRow> {
+  try {
+    const response = await fetch(`${API_URL}/study-sets/assignments/${assignmentId}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return handleResponse<StudySetAssignmentTeacherRow>(response);
+  } catch (err) {
+    if (err instanceof TypeError && err.message === 'Failed to fetch') {
+      throw new Error('Cannot connect to server. Please make sure the backend is running on http://localhost:8000');
+    }
+    throw err;
+  }
+}
+
 // Update a study set
 export async function updateStudySet(setId: number, data: StudySetUpdate): Promise<StudySetOut> {
   try {
@@ -478,6 +559,7 @@ export async function markStudySetOffline(setId: number): Promise<void> {
     });
 
     if (!response.ok) {
+      if (response.status === 401) redirectToLogin();
       let errorData;
       try {
         errorData = await response.json();
@@ -504,6 +586,7 @@ export async function removeStudySetOffline(setId: number): Promise<void> {
     });
 
     if (!response.ok) {
+      if (response.status === 401) redirectToLogin();
       let errorData;
       try {
         errorData = await response.json();
@@ -535,6 +618,7 @@ export interface DashboardAssignment {
   due: string | null;
   status: string;
   set_id: number;
+  time_limit_minutes?: number | null;
 }
 
 export interface Recommendation {
@@ -632,6 +716,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     });
 
     if (!response.ok) {
+      if (response.status === 401) redirectToLogin();
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to fetch dashboard stats');
     }
@@ -653,6 +738,7 @@ export async function getDashboardAssignments(): Promise<DashboardAssignment[]> 
     });
 
     if (!response.ok) {
+      if (response.status === 401) redirectToLogin();
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to fetch assignments');
     }
@@ -674,6 +760,7 @@ export async function getRecommendations(): Promise<Recommendation[]> {
     });
 
     if (!response.ok) {
+      if (response.status === 401) redirectToLogin();
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to fetch recommendations');
     }
@@ -706,6 +793,7 @@ export async function getNextRecommendation(): Promise<NextRecommendation> {
     });
 
     if (!response.ok) {
+      if (response.status === 401) redirectToLogin();
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to fetch next recommendation');
     }
@@ -716,6 +804,57 @@ export async function getNextRecommendation(): Promise<NextRecommendation> {
       throw new Error('Cannot connect to server. Please make sure the backend is running on http://localhost:8000');
     }
     throw err;
+  }
+}
+
+/** Rule-based picks from practice history (GET /study-sets/recommendations/me). Not Gemini. */
+export interface RuleBasedRecommendationItem {
+  id: number;
+  title: string;
+  subject: string;
+  level: string;
+  reason: string;
+}
+
+export async function getRuleBasedRecommendations(): Promise<RuleBasedRecommendationItem[]> {
+  try {
+    const response = await fetch(`${API_URL}/study-sets/recommendations/me`, {
+      credentials: 'include',
+      headers: getAuthHeaders(),
+    });
+    if (response.status === 401) {
+      redirectToLogin();
+      return [];
+    }
+    if (response.status === 403) {
+      return [];
+    }
+    if (!response.ok) {
+      return [];
+    }
+    const data = (await response.json().catch(() => ({}))) as { recommendations?: unknown };
+    const recs = data.recommendations;
+    if (!Array.isArray(recs)) {
+      return [];
+    }
+    return recs
+      .map((r: unknown) => r as Record<string, unknown>)
+      .filter(
+        (r) =>
+          r &&
+          typeof r.id === 'number' &&
+          typeof r.title === 'string' &&
+          typeof r.reason === 'string',
+      )
+      .map((r) => ({
+        id: r.id as number,
+        title: r.title as string,
+        subject: typeof r.subject === 'string' ? r.subject : '',
+        level: typeof r.level === 'string' ? r.level : '',
+        reason: r.reason as string,
+      }));
+  } catch {
+    return [];
   }
 }
 
@@ -731,6 +870,7 @@ export async function getLeaderboard(classId?: number): Promise<LeaderboardRespo
     });
 
     if (!response.ok) {
+      if (response.status === 401) redirectToLogin();
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to fetch leaderboard');
     }
@@ -752,6 +892,7 @@ export async function getStreaks(): Promise<StreaksResponse> {
     });
 
     if (!response.ok) {
+      if (response.status === 401) redirectToLogin();
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to fetch streaks');
     }
@@ -771,6 +912,7 @@ export interface Question {
   type: string;
   content: string;
   correct_answer: string;
+  explanation?: string | null;
   options?: string[];
   term?: string;
   definition?: string;
@@ -794,6 +936,7 @@ export async function getStudySetQuestions(setId: number): Promise<Question[]> {
     });
 
     if (!response.ok) {
+      if (response.status === 401) redirectToLogin();
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to fetch questions');
     }
@@ -820,6 +963,7 @@ export async function recordProgress(setId: number, answers: { [questionId: stri
     });
 
     if (!response.ok) {
+      if (response.status === 401) redirectToLogin();
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to record progress');
     }
@@ -842,6 +986,7 @@ export async function deleteStudySet(setId: number): Promise<void> {
     });
 
     if (!response.ok) {
+      if (response.status === 401) redirectToLogin();
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to delete study set');
     }
@@ -851,17 +996,6 @@ export async function deleteStudySet(setId: number): Promise<void> {
     }
     throw err;
   }
-}
-
-export interface QuestionCreate {
-  type: string;
-  content: string;
-  correct_answer: string;
-  options?: string[];
-  term?: string;
-  definition?: string;
-  problem?: string;
-  solution?: string;
 }
 
 export async function addQuestion(setId: number, data: QuestionCreate): Promise<Question> {
@@ -877,6 +1011,7 @@ export async function addQuestion(setId: number, data: QuestionCreate): Promise<
     });
 
     if (!response.ok) {
+      if (response.status === 401) redirectToLogin();
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to add question');
     }
@@ -903,6 +1038,7 @@ export async function updateQuestion(setId: number, questionId: number, data: Qu
     });
 
     if (!response.ok) {
+      if (response.status === 401) redirectToLogin();
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to update question');
     }
@@ -925,6 +1061,7 @@ export async function deleteQuestion(setId: number, questionId: number): Promise
     });
 
     if (!response.ok) {
+      if (response.status === 401) redirectToLogin();
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to delete question');
     }
@@ -972,6 +1109,7 @@ export async function getAllBadges(): Promise<BadgesResponse> {
     });
 
     if (!response.ok) {
+      if (response.status === 401) redirectToLogin();
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to fetch badges');
     }
@@ -993,6 +1131,7 @@ export async function getPointsBreakdown(): Promise<PointsBreakdown> {
     });
 
     if (!response.ok) {
+      if (response.status === 401) redirectToLogin();
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to fetch points breakdown');
     }
@@ -1017,6 +1156,7 @@ export async function getAnalytics(setId?: number): Promise<AnalyticsResponse> {
     });
 
     if (!response.ok) {
+      if (response.status === 401) redirectToLogin();
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to fetch analytics');
     }
@@ -1038,6 +1178,7 @@ export async function getProgress(): Promise<ProgressResponse> {
     });
 
     if (!response.ok) {
+      if (response.status === 401) redirectToLogin();
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to fetch progress');
     }
@@ -1058,12 +1199,18 @@ export async function getAiStatus(): Promise<{ enabled: boolean }> {
     headers: getAuthHeaders(),
   });
   if (!response.ok) {
+    if (response.status === 401) redirectToLogin();
     return { enabled: false };
   }
   return response.json();
 }
 
-export async function aiHint(body: { question: string; topic?: string }): Promise<{ text: string }> {
+export async function aiHint(body: {
+  question: string;
+  topic?: string;
+  /** App UI language (en / ru / kz) so the model replies in the same language. */
+  response_language?: string;
+}): Promise<{ text: string }> {
   const response = await fetch(`${API_URL}/study-sets/ai/hint`, {
     method: 'POST',
     credentials: 'include',
@@ -1071,6 +1218,7 @@ export async function aiHint(body: { question: string; topic?: string }): Promis
     body: JSON.stringify(body),
   });
   if (!response.ok) {
+    if (response.status === 401) redirectToLogin();
     const errorData = await response.json().catch(() => ({}));
     throw new Error(
       typeof errorData.detail === 'string' ? errorData.detail : 'AI hint failed'
@@ -1084,6 +1232,7 @@ export async function aiExplain(body: {
   user_answer: string;
   correct_answer?: string;
   subject?: string;
+  response_language?: string;
 }): Promise<{ text: string }> {
   const response = await fetch(`${API_URL}/study-sets/ai/explain`, {
     method: 'POST',
@@ -1092,6 +1241,7 @@ export async function aiExplain(body: {
     body: JSON.stringify(body),
   });
   if (!response.ok) {
+    if (response.status === 401) redirectToLogin();
     const errorData = await response.json().catch(() => ({}));
     throw new Error(
       typeof errorData.detail === 'string' ? errorData.detail : 'AI explanation failed'
@@ -1106,6 +1256,7 @@ export async function aiFeedback(body: {
   is_correct: boolean;
   correct_answer?: string;
   topic?: string;
+  response_language?: string;
 }): Promise<{ text: string }> {
   const response = await fetch(`${API_URL}/study-sets/ai/feedback`, {
     method: 'POST',
@@ -1114,6 +1265,7 @@ export async function aiFeedback(body: {
     body: JSON.stringify(body),
   });
   if (!response.ok) {
+    if (response.status === 401) redirectToLogin();
     const errorData = await response.json().catch(() => ({}));
     throw new Error(
       typeof errorData.detail === 'string' ? errorData.detail : 'AI feedback failed'
@@ -1135,6 +1287,7 @@ export async function aiGenerateQuestions(body: {
     body: JSON.stringify(body),
   });
   if (!response.ok) {
+    if (response.status === 401) redirectToLogin();
     const errorData = await response.json().catch(() => ({}));
     throw new Error(
       typeof errorData.detail === 'string' ? errorData.detail : 'AI question generation failed'

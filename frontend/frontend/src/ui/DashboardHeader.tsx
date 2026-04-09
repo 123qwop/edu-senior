@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Link as RouterLink } from 'react-router-dom'
 import logo from '../assets/logo.png'
 import { getMe } from '../api/authApi'
+import NotificationBell from '../components/NotificationBell'
 
 export default function DashboardHeader() {
   const { t, i18n } = useTranslation()
@@ -62,6 +63,7 @@ export default function DashboardHeader() {
         </Link>
         <Box sx={{ flexGrow: 1 }} />
         <Stack direction="row" spacing={2} alignItems="center">
+          <NotificationBell />
           <Stack direction="row" spacing={1} alignItems="center" sx={{ color: 'white' }}>
             <PersonIcon sx={{ color: 'white' }} />
             <Typography variant="body1" sx={{ fontWeight: 600, color: 'white' }}>

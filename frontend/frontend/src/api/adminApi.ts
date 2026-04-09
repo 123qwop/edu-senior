@@ -1,4 +1,4 @@
-import { API_URL } from './authApi';
+import { API_URL, redirectToLogin } from './authApi';
 
 function getHeaders(): HeadersInit {
   return { 'Content-Type': 'application/json' };
@@ -27,6 +27,7 @@ export async function getAdminUsers(): Promise<AdminUser[]> {
     headers: getHeaders(),
   });
   if (!res.ok) {
+    if (res.status === 401) redirectToLogin();
     const err = await res.json().catch(() => ({}));
     throw new Error(typeof err.detail === 'string' ? err.detail : 'Failed to load users');
   }
@@ -41,6 +42,7 @@ export async function patchAdminUserRole(userId: number, role: string): Promise<
     body: JSON.stringify({ role }),
   });
   if (!res.ok) {
+    if (res.status === 401) redirectToLogin();
     const err = await res.json().catch(() => ({}));
     throw new Error(typeof err.detail === 'string' ? err.detail : 'Failed to update role');
   }
@@ -53,6 +55,7 @@ export async function deleteAdminUser(userId: number): Promise<void> {
     credentials: 'include',
   });
   if (!res.ok) {
+    if (res.status === 401) redirectToLogin();
     const err = await res.json().catch(() => ({}));
     throw new Error(typeof err.detail === 'string' ? err.detail : 'Failed to delete user');
   }
@@ -64,6 +67,7 @@ export async function getAdminStudySets(): Promise<AdminStudySet[]> {
     headers: getHeaders(),
   });
   if (!res.ok) {
+    if (res.status === 401) redirectToLogin();
     const err = await res.json().catch(() => ({}));
     throw new Error(typeof err.detail === 'string' ? err.detail : 'Failed to load study sets');
   }
@@ -76,6 +80,7 @@ export async function deleteAdminStudySet(setId: number): Promise<void> {
     credentials: 'include',
   });
   if (!res.ok) {
+    if (res.status === 401) redirectToLogin();
     const err = await res.json().catch(() => ({}));
     throw new Error(typeof err.detail === 'string' ? err.detail : 'Failed to delete study set');
   }

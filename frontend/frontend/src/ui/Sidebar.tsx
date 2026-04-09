@@ -56,6 +56,10 @@ export default function Sidebar() {
       elevation={0}
       sx={{
         width: 280,
+        minWidth: 280,
+        maxWidth: 280,
+        flexShrink: 0,
+        boxSizing: 'border-box',
         height: '100%',
         bgcolor: 'neutral.50',
         borderRadius: 0,

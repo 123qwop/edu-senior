@@ -65,10 +65,10 @@ export async function login(
     if (data.access_token) {
       try {
         const userData = await getMe();
-        if (userData.role) {
-          localStorage.setItem('user_role', userData.role);
-        }
-      } catch (err) {
+    if (userData.role) {
+      localStorage.setItem('user_role', String(userData.role).toLowerCase().trim());
+    }
+  } catch (err) {
         console.error('Failed to fetch user role:', err);
       }
     }
@@ -79,6 +79,12 @@ export async function login(
     }
     throw err;
   }
+}
+
+/** Clears cached role and sends the user to sign-in (session expired or logged out). */
+export function redirectToLogin(): void {
+  localStorage.removeItem('user_role');
+  window.location.href = '/login';
 }
 
 export async function getMe() {
@@ -94,7 +100,7 @@ export async function getMe() {
 
   const userData = await res.json();
   if (userData.role) {
-    localStorage.setItem('user_role', userData.role);
+    localStorage.setItem('user_role', String(userData.role).toLowerCase().trim());
   }
   return userData;
 }
@@ -106,16 +112,16 @@ export function getUserRole(): string | null {
 
 // Utility function to check if user is a teacher
 export function isTeacher(): boolean {
-  return getUserRole() === 'teacher';
+  return (getUserRole() || '').toLowerCase() === 'teacher';
 }
 
 // Utility function to check if user is a student
 export function isStudent(): boolean {
-  return getUserRole() === 'student';
+  return (getUserRole() || '').toLowerCase() === 'student';
 }
 
 export function isAdmin(): boolean {
-  return getUserRole() === 'admin';
+  return (getUserRole() || '').toLowerCase() === 'admin';
 }
 
 export interface UserUpdate {
@@ -133,6 +139,7 @@ export async function updateProfile(data: UserUpdate) {
   });
 
   if (!res.ok) {
+    if (res.status === 401) redirectToLogin();
     let errorData;
     try {
       errorData = await res.json();
@@ -145,7 +152,7 @@ export async function updateProfile(data: UserUpdate) {
   const userData = await res.json();
   // Update role in localStorage if it changed
   if (userData.role) {
-    localStorage.setItem('user_role', userData.role);
+    localStorage.setItem('user_role', String(userData.role).toLowerCase().trim());
   }
   return userData;
 }

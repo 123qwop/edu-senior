@@ -19,6 +19,7 @@ import Gamification from './pages/Gamification';
 import Settings from './pages/Settings';
 import AdminPortal from './pages/AdminPortal';
 import AdminRoute from './components/AdminRoute';
+import RequireAuth from './components/RequireAuth';
 import theme from './theme';
 import LanguageSwitcher from './components/LanguageSwitcher';
 
@@ -33,26 +34,28 @@ export default function App() {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/pwdreset" element={<PwdReset />} />
         <Route element={<DashboardLayout />}>
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/dashboard/study-sets" element={<StudySets />} />
-          <Route path="/dashboard/study-sets/:setId/practice" element={<Practice />} />
-          <Route path="/dashboard/subjects" element={<Classes />} />
-          <Route path="/dashboard/classes/:classId" element={<ClassDetail />} />
-          <Route path="/dashboard/downloads" element={<Downloads />} />
-          <Route path="/dashboard/analytics" element={<Analytics />} />
-          <Route path="/dashboard/progress" element={<Progress />} />
-          <Route path="/dashboard/ai-recommendations" element={<AIRecommendations />} />
-          <Route path="/dashboard/gamification" element={<Gamification />} />
-          <Route path="/dashboard/settings" element={<Settings />} />
-          <Route
-            path="/dashboard/admin"
-            element={
-              <AdminRoute>
-                <AdminPortal />
-              </AdminRoute>
-            }
-          />
-          <Route path="/statistics" element={<Statistics />} />
+          <Route element={<RequireAuth />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/dashboard/study-sets" element={<StudySets />} />
+            <Route path="/dashboard/study-sets/:setId/practice" element={<Practice />} />
+            <Route path="/dashboard/subjects" element={<Classes />} />
+            <Route path="/dashboard/classes/:classId" element={<ClassDetail />} />
+            <Route path="/dashboard/downloads" element={<Downloads />} />
+            <Route path="/dashboard/analytics" element={<Analytics />} />
+            <Route path="/dashboard/progress" element={<Progress />} />
+            <Route path="/dashboard/ai-recommendations" element={<AIRecommendations />} />
+            <Route path="/dashboard/gamification" element={<Gamification />} />
+            <Route path="/dashboard/settings" element={<Settings />} />
+            <Route
+              path="/dashboard/admin"
+              element={
+                <AdminRoute>
+                  <AdminPortal />
+                </AdminRoute>
+              }
+            />
+            <Route path="/statistics" element={<Statistics />} />
+          </Route>
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

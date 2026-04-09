@@ -1,31 +1,25 @@
 import { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import { Box, CircularProgress } from '@mui/material';
 import { getMe, redirectToLogin } from '../api/authApi';
 
-export default function AdminRoute({ children }: { children: React.ReactNode }) {
-  const [allowed, setAllowed] = useState<boolean | null>(null);
+/** Verifies session before rendering dashboard routes; redirects to sign-in if unauthenticated. */
+export default function RequireAuth() {
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
     getMe()
-      .then((u) => {
-        if (!cancelled) setAllowed(u.role === 'admin');
-      })
+      .then(() => setReady(true))
       .catch((err) => {
-        if (cancelled) return;
         if (err instanceof Error && err.message === 'Not authenticated') {
           redirectToLogin();
           return;
         }
-        setAllowed(false);
+        setReady(true);
       });
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
-  if (allowed === null) {
+  if (!ready) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 240 }}>
         <CircularProgress />
@@ -33,9 +27,5 @@ export default function AdminRoute({ children }: { children: React.ReactNode }) 
     );
   }
 
-  if (!allowed) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return <>{children}</>;
+  return <Outlet />;
 }

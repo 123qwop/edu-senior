@@ -8,14 +8,16 @@ export default function DashboardLayout() {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'background.default' }}>
       <DashboardHeader />
-      <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
+      <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden', minHeight: 0 }}>
         <Sidebar />
         <Box
           sx={{
             flexGrow: 1,
+            minWidth: 0,
             display: 'flex',
             flexDirection: 'column',
             overflow: 'auto',
+            scrollbarGutter: 'stable',
             pl: 2,
           }}
         >
