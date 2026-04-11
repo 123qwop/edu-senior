@@ -1,46 +1,34 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import Constants from "expo-constants";
-import { Platform } from "react-native";
 
-/**
- * Backend base URL (no trailing slash).
- * - Set `EXPO_PUBLIC_API_URL` in `.env` (recommended), or
- * - Set `expo.extra.apiUrl` in `app.json`, or
- * - In __DEV__, simulators/emulators use sensible defaults (see below).
- */
-function resolveApiUrl(): string {
-  const fromEnv = process.env.EXPO_PUBLIC_API_URL?.trim();
-  if (fromEnv) {
-    return fromEnv.replace(/\/$/, "");
+import { API_URL } from "./apiConfig";
+
+/** FastAPI may return `detail` as a string or a list of validation errors. */
+function formatFastApiDetail(detail: unknown): string {
+  if (detail == null) {
+    return "Request failed";
   }
-
-  const fromExtra = (
-    Constants.expoConfig?.extra as { apiUrl?: string } | undefined
-  )?.apiUrl?.trim();
-  if (fromExtra) {
-    return fromExtra.replace(/\/$/, "");
+  if (typeof detail === "string") {
+    return detail;
   }
-
-  if (__DEV__) {
-    if (Platform.OS === "web") {
-      return "http://127.0.0.1:8000";
-    }
-    if (Platform.OS === "android" && !Constants.isDevice) {
-      return "http://10.0.2.2:8000";
-    }
-    if (Platform.OS === "ios" && !Constants.isDevice) {
-      return "http://127.0.0.1:8000";
-    }
-    // Real phone/tablet: you must set EXPO_PUBLIC_API_URL (or expo.extra.apiUrl) to your Mac/PC LAN IP.
-    if (Constants.isDevice) {
-      return "http://192.168.0.18:8000";
-    }
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        if (item && typeof item === "object" && "msg" in item) {
+          const loc = Array.isArray((item as { loc?: unknown }).loc)
+            ? `${(item as { loc: (string | number)[] }).loc.join(".")}: `
+            : "";
+          return `${loc}${(item as { msg: string }).msg}`;
+        }
+        try {
+          return JSON.stringify(item);
+        } catch {
+          return String(item);
+        }
+      })
+      .join("\n");
   }
-
-  return "http://127.0.0.1:8000";
+  return String(detail);
 }
-
-export const API_URL = resolveApiUrl();
 
 function isNetworkError(err: unknown): boolean {
   if (!(err instanceof TypeError)) {
@@ -73,7 +61,9 @@ export async function register(data: {
           detail: `Registration failed: ${res.status} ${res.statusText}`,
         };
       }
-      throw new Error(errorData.detail || "Registration failed");
+      throw new Error(
+        formatFastApiDetail(errorData.detail) || "Registration failed",
+      );
     }
 
     return res.json();
@@ -102,7 +92,9 @@ export async function login(email: string, password: string) {
       } catch {
         errorData = { detail: `Login failed: ${res.status} ${res.statusText}` };
       }
-      throw new Error(errorData.detail || "Invalid credentials");
+      throw new Error(
+        formatFastApiDetail(errorData.detail) || "Invalid credentials",
+      );
     }
 
     const data = await res.json();

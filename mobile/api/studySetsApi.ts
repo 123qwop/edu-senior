@@ -1,4 +1,6 @@
-export const API_URL = "http://192.168.0.18:8000";
+import { API_URL } from "./apiConfig";
+
+export { API_URL } from "./apiConfig";
 
 export interface StudySetCreate {
   title: string;
