@@ -1,9 +1,20 @@
 import { getUserRole } from "@/api/authApi";
 import {
+  type Assignment,
   type ClassOut,
   createClass,
+  createStudySet,
   deleteClass,
+  getClassAssignments,
+  getClassStudents,
+  getClassStudentsProgress,
   getClasses,
+  getLeaderboard,
+  getStudySets,
+  type LeaderboardResponse,
+  type Student,
+  type StudentProgressDetail,
+  type StudySetOut,
 } from "@/api/studySetsApi";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import { Picker } from "@react-native-picker/picker";
@@ -20,6 +31,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const SUBJECT_OPTIONS = [
   "Mathematics",
@@ -34,12 +46,26 @@ const SUBJECT_OPTIONS = [
 
 const GRADE_NONE = "none";
 
+const STUDY_SET_TYPES = ["Flashcards", "Quiz", "Problem set"] as const;
+
+const CLASS_TABS = [
+  "Students",
+  "Assignments",
+  "Leaderboard",
+  "Analytics",
+] as const;
+type ClassTab = (typeof CLASS_TABS)[number];
+
 export default function MyClassesPage() {
+  const insets = useSafeAreaInsets();
   const [classes, setClasses] = useState<ClassOut[]>([]);
+  const [studySets, setStudySets] = useState<StudySetOut[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [studySetsError, setStudySetsError] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [studySetSearch, setStudySetSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [newClassName, setNewClassName] = useState("");
   /** Empty string until user picks a subject (required). */
@@ -48,29 +74,77 @@ export default function MyClassesPage() {
   const [newClassGrade, setNewClassGrade] = useState(GRADE_NONE);
   const [newClassDescription, setNewClassDescription] = useState("");
   const [creating, setCreating] = useState(false);
+  const [createSetOpen, setCreateSetOpen] = useState(false);
+  const [newSetTitle, setNewSetTitle] = useState("");
+  const [newSetSubject, setNewSetSubject] = useState("");
+  const [newSetType, setNewSetType] =
+    useState<(typeof STUDY_SET_TYPES)[number]>("Flashcards");
+  const [newSetDescription, setNewSetDescription] = useState("");
+  const [creatingSet, setCreatingSet] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [classDetailOpen, setClassDetailOpen] = useState(false);
+  const [selectedClass, setSelectedClass] = useState<ClassOut | null>(null);
+  const [activeTab, setActiveTab] = useState<ClassTab>("Students");
+  const [classStudents, setClassStudents] = useState<Student[]>([]);
+  const [classAssignments, setClassAssignments] = useState<Assignment[]>([]);
+  const [classProgress, setClassProgress] = useState<StudentProgressDetail[]>(
+    [],
+  );
+  const [classLeaderboard, setClassLeaderboard] = useState<LeaderboardResponse>(
+    {
+      leaderboard: [],
+      current_user_rank: null,
+    },
+  );
+  const [tabLoading, setTabLoading] = useState(false);
+  const [tabError, setTabError] = useState<string | null>(null);
 
   const isTeacher = role === "teacher";
 
-  const loadClasses = useCallback(async () => {
+  const loadPage = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setStudySetsError(null);
     try {
-      setError(null);
-      const [userRole, data] = await Promise.all([
-        getUserRole(),
-        getClasses(),
-      ]);
+      const userRole = await getUserRole();
       setRole(userRole);
-      setClasses(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load classes");
-    } finally {
-      setLoading(false);
+    } catch {
+      setRole(null);
     }
+
+    const [classesRes, setsRes] = await Promise.allSettled([
+      getClasses(),
+      getStudySets({ ownership: "Mine" }),
+    ]);
+
+    if (classesRes.status === "fulfilled") {
+      setClasses(classesRes.value);
+    } else {
+      const msg =
+        classesRes.reason instanceof Error
+          ? classesRes.reason.message
+          : "Failed to load classes";
+      setError(msg);
+      setClasses([]);
+    }
+
+    if (setsRes.status === "fulfilled") {
+      setStudySets(setsRes.value);
+    } else {
+      const msg =
+        setsRes.reason instanceof Error
+          ? setsRes.reason.message
+          : "Failed to load study sets";
+      setStudySetsError(msg);
+      setStudySets([]);
+    }
+
+    setLoading(false);
   }, []);
 
   useEffect(() => {
-    loadClasses();
-  }, [loadClasses]);
+    loadPage();
+  }, [loadPage]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -82,6 +156,17 @@ export default function MyClassesPage() {
         (c.level ?? "").toLowerCase().includes(q),
     );
   }, [classes, search]);
+
+  const filteredStudySets = useMemo(() => {
+    const q = studySetSearch.trim().toLowerCase();
+    if (!q) return studySets;
+    return studySets.filter(
+      (s) =>
+        s.title.toLowerCase().includes(q) ||
+        (s.subject ?? "").toLowerCase().includes(q) ||
+        (s.type ?? "").toLowerCase().includes(q),
+    );
+  }, [studySets, studySetSearch]);
 
   const closeCreateModal = () => {
     setCreateOpen(false);
@@ -108,13 +193,11 @@ export default function MyClassesPage() {
         class_name: name,
         subject: newClassSubject,
         level:
-          newClassGrade === GRADE_NONE
-            ? undefined
-            : `Grade ${newClassGrade}`,
+          newClassGrade === GRADE_NONE ? undefined : `Grade ${newClassGrade}`,
         description: newClassDescription.trim() || undefined,
       });
       closeCreateModal();
-      await loadClasses();
+      await loadPage();
     } catch (err) {
       Alert.alert(
         "Error",
@@ -126,31 +209,150 @@ export default function MyClassesPage() {
   };
 
   const confirmDelete = (item: ClassOut) => {
-    Alert.alert(
-      "Delete class",
-      `Delete "${item.class_name}"?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              setDeletingId(item.id);
-              await deleteClass(item.id);
-              await loadClasses();
-            } catch (err) {
-              Alert.alert(
-                "Error",
-                err instanceof Error ? err.message : "Failed to delete",
-              );
-            } finally {
-              setDeletingId(null);
-            }
-          },
+    Alert.alert("Delete class", `Delete "${item.class_name}"?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            setDeletingId(item.id);
+            await deleteClass(item.id);
+            await loadPage();
+          } catch (err) {
+            Alert.alert(
+              "Error",
+              err instanceof Error ? err.message : "Failed to delete",
+            );
+          } finally {
+            setDeletingId(null);
+          }
         },
-      ],
-    );
+      },
+    ]);
+  };
+
+  const closeCreateSetModal = () => {
+    setCreateSetOpen(false);
+    setNewSetTitle("");
+    setNewSetSubject("");
+    setNewSetType("Flashcards");
+    setNewSetDescription("");
+  };
+
+  const submitCreateStudySet = async () => {
+    if (creatingSet) return;
+    const title = newSetTitle.trim();
+    if (!title) {
+      Alert.alert("Validation", "Title is required.");
+      return;
+    }
+    if (!newSetSubject) {
+      Alert.alert("Validation", "Subject is required.");
+      return;
+    }
+    try {
+      setCreatingSet(true);
+      await createStudySet({
+        title,
+        subject: newSetSubject,
+        type: newSetType,
+        description: newSetDescription.trim() || undefined,
+      });
+      closeCreateSetModal();
+      await loadPage();
+    } catch (err) {
+      Alert.alert(
+        "Error",
+        err instanceof Error ? err.message : "Failed to create study set",
+      );
+    } finally {
+      setCreatingSet(false);
+    }
+  };
+
+  const openClassDetail = (item: ClassOut) => {
+    setSelectedClass(item);
+    setActiveTab("Students");
+    setClassStudents([]);
+    setClassAssignments([]);
+    setClassProgress([]);
+    setClassLeaderboard({ leaderboard: [], current_user_rank: null });
+    setTabError(null);
+    setClassDetailOpen(true);
+  };
+
+  const closeClassDetail = () => {
+    setClassDetailOpen(false);
+    setSelectedClass(null);
+    setTabError(null);
+  };
+
+  useEffect(() => {
+    const classId = selectedClass?.id;
+    if (!classId || !classDetailOpen) return;
+
+    const loadTabData = async () => {
+      try {
+        setTabLoading(true);
+        setTabError(null);
+        if (activeTab === "Students") {
+          const students = await getClassStudents(classId);
+          setClassStudents(students);
+          return;
+        }
+        if (activeTab === "Assignments") {
+          const assignments = await getClassAssignments(classId);
+          setClassAssignments(assignments);
+          return;
+        }
+        if (activeTab === "Leaderboard") {
+          if (isTeacher) {
+            const [students, progress] = await Promise.all([
+              getClassStudents(classId),
+              getClassStudentsProgress(classId),
+            ]);
+            setClassStudents(students);
+            setClassProgress(progress);
+            const mapped = progress
+              .map((p) => ({
+                rank: 0,
+                name:
+                  students.find((s) => s.id === p.student_id)?.name ??
+                  "Unknown",
+                points: Math.round(p.average_mastery * 10),
+              }))
+              .sort((a, b) => b.points - a.points)
+              .map((entry, idx) => ({ ...entry, rank: idx + 1 }));
+            setClassLeaderboard({
+              leaderboard: mapped,
+              current_user_rank: null,
+            });
+          } else {
+            const data = await getLeaderboard(classId);
+            setClassLeaderboard(data);
+          }
+          return;
+        }
+        if (activeTab === "Analytics") {
+          const progress = await getClassStudentsProgress(classId);
+          setClassProgress(progress);
+        }
+      } catch (err) {
+        setTabError(err instanceof Error ? err.message : "Failed to load data");
+      } finally {
+        setTabLoading(false);
+      }
+    };
+
+    loadTabData();
+  }, [activeTab, classDetailOpen, isTeacher, selectedClass?.id]);
+
+  const formatDueDate = (value: string | null) => {
+    if (!value) return "No due date";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleString();
   };
 
   return (
@@ -165,98 +367,311 @@ export default function MyClassesPage() {
       />
 
       <View style={styles.screen}>
-        <View style={styles.titleRow}>
-          <Text style={styles.titleText}>My classes</Text>
-          <Pressable
-            accessibilityLabel={
-              isTeacher ? "Create class" : "Create class unavailable"
-            }
-            onPress={() => {
-              if (isTeacher) {
-                setCreateOpen(true);
-              } else {
-                Alert.alert(
-                  "Create class",
-                  "Only teachers can create classes from the app.",
-                );
-              }
-            }}
-            style={({ pressed }) => [
-              styles.plusButton,
-              pressed && styles.plusPressed,
-            ]}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <AntDesign name="plus" size={26} color="#2593BE" />
-          </Pressable>
-        </View>
-
-        <TextInput
-          value={search}
-          onChangeText={setSearch}
-          placeholder="Search classes"
-          style={styles.search}
-          placeholderTextColor="#64748B"
-        />
-
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
+          <View style={styles.titleRow}>
+            <Text style={styles.titleText}>My classes</Text>
+            <Pressable
+              accessibilityLabel={
+                isTeacher ? "Create class" : "Create class unavailable"
+              }
+              onPress={() => {
+                if (isTeacher) {
+                  setCreateOpen(true);
+                } else {
+                  Alert.alert(
+                    "Create class",
+                    "Only teachers can create classes from the app.",
+                  );
+                }
+              }}
+              style={({ pressed }) => [
+                styles.plusButton,
+                pressed && styles.plusPressed,
+              ]}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <AntDesign name="plus" size={26} color="#2593BE" />
+            </Pressable>
+          </View>
+
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search classes"
+            style={styles.search}
+            placeholderTextColor="#64748B"
+          />
+
           {loading ? (
             <View style={styles.centered}>
               <ActivityIndicator size="large" color="#2593BE" />
               <Text style={styles.muted}>Loading…</Text>
             </View>
-          ) : error ? (
-            <View style={styles.centered}>
-              <Text style={styles.error}>{error}</Text>
-              <Pressable style={styles.primaryBtn} onPress={loadClasses}>
-                <Text style={styles.primaryBtnText}>Retry</Text>
-              </Pressable>
-            </View>
-          ) : filtered.length === 0 ? (
-            <Text style={styles.muted}>
-              {classes.length === 0
-                ? "No classes yet."
-                : "No classes match your search."}
-            </Text>
           ) : (
-            filtered.map((item) => (
-              <View key={item.id} style={styles.card}>
-                <Text style={styles.cardTitle}>{item.class_name}</Text>
-                <Text style={styles.cardMeta}>
-                  Subject: {item.subject ?? "—"}
-                </Text>
-                <Text style={styles.cardMeta}>
-                  Level: {item.level ?? "—"}
-                </Text>
-                <Text style={styles.cardMeta}>
-                  Students: {item.student_count ?? 0} · Assignments:{" "}
-                  {item.assignment_count ?? 0}
-                </Text>
-                <Text style={styles.cardMeta}>
-                  Avg mastery:{" "}
-                  {item.average_mastery != null
-                    ? `${Math.round(item.average_mastery)}%`
-                    : "—"}
-                </Text>
-                {isTeacher ? (
-                  <Pressable
-                    style={styles.dangerBtn}
-                    disabled={deletingId === item.id}
-                    onPress={() => confirmDelete(item)}
-                  >
-                    <Text style={styles.dangerBtnText}>
-                      {deletingId === item.id ? "Deleting…" : "Delete"}
-                    </Text>
+            <>
+              {error ? (
+                <View style={styles.centered}>
+                  <Text style={styles.error}>{error}</Text>
+                  <Pressable style={styles.primaryBtn} onPress={loadPage}>
+                    <Text style={styles.primaryBtnText}>Retry</Text>
                   </Pressable>
-                ) : null}
+                </View>
+              ) : filtered.length === 0 ? (
+                <Text style={styles.sectionMuted}>
+                  {classes.length === 0
+                    ? "No classes yet."
+                    : "No classes match your search."}
+                </Text>
+              ) : (
+                filtered.map((item) => (
+                  <View key={item.id} style={styles.card}>
+                    <View style={styles.cardRow}>
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.cardTouchable,
+                          pressed && styles.cardTouchablePressed,
+                        ]}
+                        onPress={() => openClassDetail(item)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Open class ${item.class_name}`}
+                      >
+                        <Text style={styles.cardTitle}>{item.class_name}</Text>
+                        <Text style={styles.cardMeta}>
+                          Subject: {item.subject ?? "—"}
+                        </Text>
+                        <Text style={styles.cardMeta}>
+                          Level: {item.level ?? "—"}
+                        </Text>
+                        <Text style={styles.cardMeta}>
+                          Students: {item.student_count ?? 0} · Assignments:{" "}
+                          {item.assignment_count ?? 0}
+                        </Text>
+                        <Text style={styles.cardMeta}>
+                          Avg mastery:{" "}
+                          {item.average_mastery != null
+                            ? `${Math.round(item.average_mastery)}%`
+                            : "—"}
+                        </Text>
+                      </Pressable>
+                      {isTeacher ? (
+                        <Pressable
+                          style={styles.dangerBtnSide}
+                          disabled={deletingId === item.id}
+                          onPress={() => confirmDelete(item)}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Delete class ${item.class_name}`}
+                        >
+                          <Text style={styles.dangerBtnText}>
+                            {deletingId === item.id ? "Deleting…" : "Delete"}
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  </View>
+                ))
+              )}
+
+              <View style={styles.sectionDivider} />
+
+              <View style={styles.titleRow}>
+                <Text style={styles.titleText}>My study sets</Text>
+                <Pressable
+                  accessibilityLabel="Create study set"
+                  onPress={() => setCreateSetOpen(true)}
+                  style={({ pressed }) => [
+                    styles.plusButton,
+                    pressed && styles.plusPressed,
+                  ]}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
+                  <AntDesign name="plus" size={26} color="#2593BE" />
+                </Pressable>
               </View>
-            ))
+
+              <TextInput
+                value={studySetSearch}
+                onChangeText={setStudySetSearch}
+                placeholder="Search study sets"
+                style={styles.search}
+                placeholderTextColor="#64748B"
+              />
+
+              {studySetsError ? (
+                <View style={styles.centered}>
+                  <Text style={styles.error}>{studySetsError}</Text>
+                  <Pressable style={styles.primaryBtn} onPress={loadPage}>
+                    <Text style={styles.primaryBtnText}>Retry</Text>
+                  </Pressable>
+                </View>
+              ) : filteredStudySets.length === 0 ? (
+                <Text style={styles.sectionMuted}>
+                  {studySets.length === 0
+                    ? "No study sets yet."
+                    : "No study sets match your search."}
+                </Text>
+              ) : (
+                filteredStudySets.map((s) => (
+                  <View key={s.id} style={styles.card}>
+                    <Text style={styles.cardTitle}>{s.title}</Text>
+                    <Text style={styles.cardMeta}>
+                      Subject: {s.subject ?? "—"}
+                    </Text>
+                    <Text style={styles.cardMeta}>Type: {s.type}</Text>
+                    <Text style={styles.cardMeta}>
+                      Items: {s.item_count ?? 0}
+                      {s.mastery != null
+                        ? ` · Mastery: ${Math.round(s.mastery)}%`
+                        : ""}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </>
           )}
         </ScrollView>
       </View>
+
+      <Modal
+        visible={classDetailOpen}
+        animationType="slide"
+        onRequestClose={closeClassDetail}
+      >
+        <View style={styles.classModalScreen}>
+          <View
+            style={[styles.classModalHeader, { paddingTop: insets.top + 8 }]}
+          >
+            <Pressable onPress={closeClassDetail} style={styles.backBtn}>
+              <AntDesign name="arrow-left" size={18} color="#0F172A" />
+              <Text style={styles.backBtnText}>Back</Text>
+            </Pressable>
+            <Text style={styles.classModalTitle}>
+              {selectedClass?.class_name ?? "Class"}
+            </Text>
+            <Text style={styles.classModalSubtitle}>
+              {(selectedClass?.subject ?? "—") +
+                (selectedClass?.level ? ` • ${selectedClass.level}` : "")}
+            </Text>
+          </View>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.tabsScroll}
+            contentContainerStyle={styles.tabsWrap}
+          >
+            {CLASS_TABS.map((tab) => (
+              <Pressable
+                key={tab}
+                onPress={() => setActiveTab(tab)}
+                style={[
+                  styles.tabBtn,
+                  activeTab === tab && styles.tabBtnActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.tabBtnText,
+                    activeTab === tab && styles.tabBtnTextActive,
+                  ]}
+                >
+                  {tab}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          <ScrollView
+            style={styles.classTabScroll}
+            contentContainerStyle={styles.classTabBody}
+          >
+            {tabLoading ? (
+              <View style={styles.centered}>
+                <ActivityIndicator size="small" color="#2593BE" />
+              </View>
+            ) : tabError ? (
+              <Text style={styles.error}>{tabError}</Text>
+            ) : activeTab === "Students" ? (
+              classStudents.length > 0 ? (
+                classStudents.map((s) => (
+                  <View key={s.id} style={styles.rowCard}>
+                    <Text style={styles.rowTitle}>{s.name}</Text>
+                    <Text style={styles.rowMeta}>{s.email}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.muted}>No students yet.</Text>
+              )
+            ) : activeTab === "Assignments" ? (
+              classAssignments.length > 0 ? (
+                classAssignments.map((a) => (
+                  <View key={a.assignment_id} style={styles.rowCard}>
+                    <Text style={styles.rowTitle}>{a.title}</Text>
+                    <Text style={styles.rowMeta}>
+                      Subject: {a.subject ?? "—"} · Type: {a.type}
+                    </Text>
+                    <Text style={styles.rowMeta}>
+                      Due: {formatDueDate(a.due_date)}
+                    </Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.muted}>No assignments yet.</Text>
+              )
+            ) : activeTab === "Leaderboard" ? (
+              classLeaderboard.leaderboard.length > 0 ? (
+                classLeaderboard.leaderboard.map((entry) => (
+                  <View
+                    key={`${entry.rank}-${entry.name}`}
+                    style={styles.rowCard}
+                  >
+                    <Text style={styles.rowTitle}>
+                      #{entry.rank} {entry.name}
+                    </Text>
+                    <Text style={styles.rowMeta}>{entry.points} pts</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.muted}>No leaderboard data yet.</Text>
+              )
+            ) : classProgress.length > 0 ? (
+              <>
+                <View style={styles.analyticsSummary}>
+                  <Text style={styles.rowMeta}>
+                    Students tracked: {classProgress.length}
+                  </Text>
+                  <Text style={styles.rowMeta}>
+                    Avg mastery:{" "}
+                    {Math.round(
+                      classProgress.reduce(
+                        (acc, p) => acc + p.average_mastery,
+                        0,
+                      ) / classProgress.length,
+                    )}
+                    %
+                  </Text>
+                </View>
+                {classProgress.map((p) => (
+                  <View key={p.student_id} style={styles.rowCard}>
+                    <Text style={styles.rowTitle}>{p.student_name}</Text>
+                    <Text style={styles.rowMeta}>
+                      Mastery: {Math.round(p.average_mastery)}%
+                    </Text>
+                    <Text style={styles.rowMeta}>
+                      Completed: {p.assignments_completed}/{p.assignments_total}
+                    </Text>
+                  </View>
+                ))}
+              </>
+            ) : (
+              <Text style={styles.muted}>No analytics data yet.</Text>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
 
       <Modal
         visible={createOpen}
@@ -344,6 +759,93 @@ export default function MyClassesPage() {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={createSetOpen}
+        animationType="fade"
+        transparent
+        onRequestClose={closeCreateSetModal}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>New study set</Text>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              style={styles.modalScroll}
+            >
+              <Text style={styles.fieldLabel}>
+                Title <Text style={styles.requiredMark}>*</Text>
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Title"
+                value={newSetTitle}
+                onChangeText={setNewSetTitle}
+                placeholderTextColor="#64748B"
+              />
+              <Text style={styles.fieldLabel}>
+                Subject <Text style={styles.requiredMark}>*</Text>
+              </Text>
+              <View style={styles.pickerWrap}>
+                <Picker
+                  selectedValue={newSetSubject}
+                  onValueChange={(v) => setNewSetSubject(String(v))}
+                  style={styles.picker}
+                >
+                  <Picker.Item label="Select subject" value="" />
+                  {SUBJECT_OPTIONS.map((sub) => (
+                    <Picker.Item key={sub} label={sub} value={sub} />
+                  ))}
+                </Picker>
+              </View>
+              <Text style={styles.fieldLabel}>Type</Text>
+              <View style={styles.pickerWrap}>
+                <Picker
+                  selectedValue={newSetType}
+                  onValueChange={(v) =>
+                    setNewSetType(v as (typeof STUDY_SET_TYPES)[number])
+                  }
+                  style={styles.picker}
+                >
+                  {STUDY_SET_TYPES.map((t) => (
+                    <Picker.Item key={t} label={t} value={t} />
+                  ))}
+                </Picker>
+              </View>
+              <Text style={styles.fieldLabel}>Description (optional)</Text>
+              <TextInput
+                style={[styles.input, styles.descriptionInput]}
+                placeholder="Description"
+                value={newSetDescription}
+                onChangeText={setNewSetDescription}
+                placeholderTextColor="#64748B"
+                multiline
+                textAlignVertical="top"
+              />
+            </ScrollView>
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={closeCreateSetModal}
+                style={styles.secondaryBtn}
+              >
+                <Text style={styles.secondaryBtnText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={submitCreateStudySet}
+                disabled={creatingSet}
+                style={[styles.primaryBtn, creatingSet && styles.disabled]}
+              >
+                {creatingSet ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.primaryBtnText}>Create</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -385,7 +887,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   scrollContent: {
-    paddingBottom: 24,
+    paddingBottom: 28,
+  },
+  sectionDivider: {
+    marginVertical: 20,
+    height: 1,
+    backgroundColor: "#E2E8F0",
+  },
+  sectionMuted: {
+    color: "#64748B",
+    fontSize: 15,
+    textAlign: "left",
+    marginBottom: 8,
   },
   centered: {
     paddingVertical: 32,
@@ -409,6 +922,18 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
     borderColor: "#E2E8F0",
+  },
+  cardRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  cardTouchable: {
+    flex: 1,
+    minWidth: 0,
+  },
+  cardTouchablePressed: {
+    opacity: 0.85,
   },
   cardTitle: {
     fontSize: 17,
@@ -443,11 +968,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 15,
   },
-  dangerBtn: {
-    marginTop: 10,
-    alignSelf: "flex-start",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+  dangerBtnSide: {
+    paddingTop: 2,
+    paddingLeft: 4,
+    justifyContent: "flex-start",
   },
   dangerBtnText: {
     color: "#DC2626",
@@ -516,5 +1040,106 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     marginTop: 8,
+  },
+  classModalScreen: {
+    flex: 1,
+    backgroundColor: "#F1F5F9",
+  },
+  classModalHeader: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+  },
+  backBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 6,
+    marginBottom: 10,
+  },
+  backBtnText: {
+    color: "#0F172A",
+    fontWeight: "600",
+  },
+  classModalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  classModalSubtitle: {
+    marginTop: 2,
+    fontSize: 14,
+    color: "#64748B",
+  },
+  /** Horizontal ScrollView must not grow to fill the screen; see tabsWrap alignItems. */
+  tabsScroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  tabsWrap: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+    backgroundColor: "#F8FAFC",
+    /** Default is stretch — tab chips were stretching to the ScrollView’s full height. */
+    alignItems: "center",
+  },
+  tabBtn: {
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: "#fff",
+    alignSelf: "center",
+  },
+  tabBtnActive: {
+    backgroundColor: "#2593BE",
+    borderColor: "#2593BE",
+  },
+  tabBtnText: {
+    color: "#334155",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  tabBtnTextActive: {
+    color: "#fff",
+  },
+  classTabScroll: {
+    flex: 1,
+  },
+  classTabBody: {
+    padding: 14,
+    paddingBottom: 28,
+    flexGrow: 1,
+  },
+  rowCard: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+  },
+  rowTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginBottom: 2,
+  },
+  rowMeta: {
+    fontSize: 13,
+    color: "#64748B",
+  },
+  analyticsSummary: {
+    backgroundColor: "#E0F2FE",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#BAE6FD",
+    padding: 12,
+    marginBottom: 10,
+    gap: 4,
   },
 });
