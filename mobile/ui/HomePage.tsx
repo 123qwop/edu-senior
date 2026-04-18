@@ -16,6 +16,7 @@ export default function HomePage() {
         style={{
           flex: 1,
           alignItems: "center",
+          backgroundColor: "#F1F5F9",
         }}
       >
         <Text

@@ -1,3 +1,5 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import { API_URL } from "./apiConfig";
 
 export { API_URL } from "./apiConfig";
@@ -85,9 +87,16 @@ export interface ClassCreate {
   description?: string;
 }
 
-/** Auth is sent via httpOnly cookies (credentials: 'include'). */
-function getAuthHeaders(): HeadersInit {
-  return { "Content-Type": "application/json" };
+/** Bearer token (mobile) + optional cookies (web). */
+async function getAuthHeaders(): Promise<HeadersInit> {
+  const token = await AsyncStorage.getItem("token");
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {
@@ -125,7 +134,7 @@ export async function getStudySets(params?: {
     const response = await fetch(url, {
       method: "GET",
       credentials: "include",
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
     });
 
     return handleResponse<StudySetOut[]>(response);
@@ -147,7 +156,7 @@ export async function createStudySet(
     const response = await fetch(`${API_URL}/study-sets`, {
       method: "POST",
       credentials: "include",
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
       body: JSON.stringify(data),
     });
 
@@ -168,7 +177,7 @@ export async function getStudySet(setId: number): Promise<StudySetOut> {
     const response = await fetch(`${API_URL}/study-sets/${setId}`, {
       method: "GET",
       credentials: "include",
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
     });
 
     return handleResponse<StudySetOut>(response);
@@ -188,7 +197,7 @@ export async function getClasses(): Promise<ClassOut[]> {
     const response = await fetch(`${API_URL}/study-sets/classes`, {
       method: "GET",
       credentials: "include",
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
     });
 
     return handleResponse<ClassOut[]>(response);
@@ -208,7 +217,7 @@ export async function createClass(data: ClassCreate): Promise<ClassOut> {
     const response = await fetch(`${API_URL}/study-sets/classes`, {
       method: "POST",
       credentials: "include",
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
       body: JSON.stringify(data),
     });
 
@@ -262,7 +271,7 @@ export async function getClassStudents(classId: number): Promise<Student[]> {
       {
         method: "GET",
         credentials: "include",
-        headers: getAuthHeaders(),
+        headers: await getAuthHeaders(),
       },
     );
 
@@ -285,7 +294,7 @@ export async function searchUsers(query: string): Promise<Student[]> {
       {
         method: "GET",
         credentials: "include",
-        headers: getAuthHeaders(),
+        headers: await getAuthHeaders(),
       },
     );
 
@@ -311,7 +320,7 @@ export async function addStudentsToClass(
       {
         method: "POST",
         credentials: "include",
-        headers: getAuthHeaders(),
+        headers: await getAuthHeaders(),
         body: JSON.stringify({ student_ids: studentIds }),
       },
     );
@@ -338,7 +347,7 @@ export async function removeStudentFromClass(
       {
         method: "DELETE",
         credentials: "include",
-        headers: getAuthHeaders(),
+        headers: await getAuthHeaders(),
       },
     );
 
@@ -379,7 +388,7 @@ export async function updateClass(
     const response = await fetch(`${API_URL}/study-sets/classes/${classId}`, {
       method: "PUT",
       credentials: "include",
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
       body: JSON.stringify(data),
     });
 
@@ -400,7 +409,7 @@ export async function deleteClass(classId: number): Promise<void> {
     const response = await fetch(`${API_URL}/study-sets/classes/${classId}`, {
       method: "DELETE",
       credentials: "include",
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
     });
 
     if (!response.ok) {
@@ -433,7 +442,7 @@ export async function createAssignment(
       {
         method: "POST",
         credentials: "include",
-        headers: getAuthHeaders(),
+        headers: await getAuthHeaders(),
         body: JSON.stringify(data),
       },
     );
@@ -471,7 +480,7 @@ export async function getClassStudentsProgress(
       {
         method: "GET",
         credentials: "include",
-        headers: getAuthHeaders(),
+        headers: await getAuthHeaders(),
       },
     );
 
@@ -496,7 +505,7 @@ export async function getClassAssignments(
       {
         method: "GET",
         credentials: "include",
-        headers: getAuthHeaders(),
+        headers: await getAuthHeaders(),
       },
     );
 
@@ -531,7 +540,7 @@ export async function updateStudySet(
     const response = await fetch(`${API_URL}/study-sets/${setId}`, {
       method: "PUT",
       credentials: "include",
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
       body: JSON.stringify(data),
     });
 
@@ -552,7 +561,7 @@ export async function markStudySetOffline(setId: number): Promise<void> {
     const response = await fetch(`${API_URL}/study-sets/${setId}/offline`, {
       method: "POST",
       credentials: "include",
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
     });
 
     if (!response.ok) {
@@ -584,7 +593,7 @@ export async function removeStudySetOffline(setId: number): Promise<void> {
     const response = await fetch(`${API_URL}/study-sets/${setId}/offline`, {
       method: "DELETE",
       credentials: "include",
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
     });
 
     if (!response.ok) {
@@ -712,7 +721,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   try {
     const response = await fetch(`${API_URL}/study-sets/dashboard/stats`, {
       credentials: "include",
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
     });
 
     if (!response.ok) {
@@ -739,7 +748,7 @@ export async function getDashboardAssignments(): Promise<
       `${API_URL}/study-sets/dashboard/assignments`,
       {
         credentials: "include",
-        headers: getAuthHeaders(),
+        headers: await getAuthHeaders(),
       },
     );
 
@@ -765,7 +774,7 @@ export async function getRecommendations(): Promise<Recommendation[]> {
       `${API_URL}/study-sets/dashboard/recommendations`,
       {
         credentials: "include",
-        headers: getAuthHeaders(),
+        headers: await getAuthHeaders(),
       },
     );
 
@@ -797,7 +806,7 @@ export async function getNextRecommendation(): Promise<NextRecommendation> {
   try {
     const response = await fetch(`${API_URL}/study-sets/recommendations/next`, {
       credentials: "include",
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
     });
 
     if (!response.ok) {
@@ -828,7 +837,7 @@ export async function getLeaderboard(
 
     const response = await fetch(url, {
       credentials: "include",
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
     });
 
     if (!response.ok) {
@@ -851,7 +860,7 @@ export async function getStreaks(): Promise<StreaksResponse> {
   try {
     const response = await fetch(`${API_URL}/study-sets/dashboard/streaks`, {
       credentials: "include",
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
     });
 
     if (!response.ok) {
@@ -895,7 +904,7 @@ export async function getStudySetQuestions(setId: number): Promise<Question[]> {
   try {
     const response = await fetch(`${API_URL}/study-sets/${setId}/questions`, {
       credentials: "include",
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
     });
 
     if (!response.ok) {
@@ -923,8 +932,7 @@ export async function recordProgress(
       method: "POST",
       credentials: "include",
       headers: {
-        ...getAuthHeaders(),
-        "Content-Type": "application/json",
+        ...(await getAuthHeaders()),
       },
       body: JSON.stringify({ answers }),
     });
@@ -950,7 +958,7 @@ export async function deleteStudySet(setId: number): Promise<void> {
     const response = await fetch(`${API_URL}/study-sets/${setId}`, {
       method: "DELETE",
       credentials: "include",
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
     });
 
     if (!response.ok) {
@@ -976,8 +984,7 @@ export async function addQuestion(
       method: "POST",
       credentials: "include",
       headers: {
-        ...getAuthHeaders(),
-        "Content-Type": "application/json",
+        ...(await getAuthHeaders()),
       },
       body: JSON.stringify(data),
     });
@@ -1010,8 +1017,7 @@ export async function updateQuestion(
         method: "PUT",
         credentials: "include",
         headers: {
-          ...getAuthHeaders(),
-          "Content-Type": "application/json",
+          ...(await getAuthHeaders()),
         },
         body: JSON.stringify(data),
       },
@@ -1043,7 +1049,7 @@ export async function deleteQuestion(
       {
         method: "DELETE",
         credentials: "include",
-        headers: getAuthHeaders(),
+        headers: await getAuthHeaders(),
       },
     );
 
@@ -1090,7 +1096,7 @@ export async function getAllBadges(): Promise<BadgesResponse> {
   try {
     const response = await fetch(`${API_URL}/study-sets/gamification/badges`, {
       credentials: "include",
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
     });
 
     if (!response.ok) {
@@ -1113,7 +1119,7 @@ export async function getPointsBreakdown(): Promise<PointsBreakdown> {
   try {
     const response = await fetch(`${API_URL}/study-sets/gamification/points`, {
       credentials: "include",
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
     });
 
     if (!response.ok) {
@@ -1139,7 +1145,7 @@ export async function getAnalytics(setId?: number): Promise<AnalyticsResponse> {
       : `${API_URL}/study-sets/analytics`;
     const response = await fetch(url, {
       credentials: "include",
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
     });
 
     if (!response.ok) {
@@ -1162,7 +1168,7 @@ export async function getProgress(): Promise<ProgressResponse> {
   try {
     const response = await fetch(`${API_URL}/study-sets/progress`, {
       credentials: "include",
-      headers: getAuthHeaders(),
+      headers: await getAuthHeaders(),
     });
 
     if (!response.ok) {

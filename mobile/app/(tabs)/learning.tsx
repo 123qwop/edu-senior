@@ -1,9 +1,5 @@
-import { View, Text } from "react-native";
+import MyClassesPage from "../../ui/MyClassesPage";
 
 export default function Learning() {
-  return (
-    <View>
-      <Text>Learning</Text>
-    </View>
-  );
+  return <MyClassesPage />;
 }

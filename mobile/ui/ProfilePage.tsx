@@ -1,10 +1,12 @@
 import { getMe } from "@/api/authApi";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, Stack } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 export default function ProfilePage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -21,6 +23,19 @@ export default function ProfilePage() {
 
     fetchUser();
   }, []);
+
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      await AsyncStorage.multiRemove(["token", "refresh_token", "user_role"]);
+      setUser(null);
+      router.replace("/login");
+    } catch (error) {
+      console.error("Failed to log out:", error);
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -91,13 +106,37 @@ export default function ProfilePage() {
           headerStyle: { backgroundColor: "#2593BE" },
         }}
       />
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+      <View
+        style={{
+          flex: 1,
+          alignItems: "center",
+          justifyContent: "flex-start",
+          paddingTop: 40,
+        }}
+      >
         <Text style={{ fontSize: 24, fontWeight: "bold" }}>
           {user.full_name}
         </Text>
 
-        <Text>Email: {user.email}</Text>
-        <Text>Role: {user.role}</Text>
+        <Text style={{ marginTop: 12 }}>Email: {user.email}</Text>
+        <Text style={{ marginTop: 4 }}>Role: {user.role}</Text>
+
+        <Pressable
+          style={{
+            backgroundColor: "#E03B3B",
+            paddingVertical: 12,
+            paddingHorizontal: 24,
+            borderRadius: 12,
+            marginTop: 24,
+            opacity: isLoggingOut ? 0.7 : 1,
+          }}
+          onPress={handleLogout}
+          disabled={isLoggingOut}
+        >
+          <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>
+            {isLoggingOut ? "Logging out..." : "Log Out"}
+          </Text>
+        </Pressable>
       </View>
     </>
   );
