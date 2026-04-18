@@ -25,8 +25,13 @@ export interface StudySetCreate {
     classId?: number;
     assignToAll?: boolean;
     studentIds?: number[];
+    /** ISO datetime string (e.g. from datetime-local) */
     dueDate?: string;
+    /** Minutes cap for one practice session (1–1440) */
+    timeLimitMinutes?: number;
   };
+  /** When true, set appears in public listings (backend default false). */
+  is_public?: boolean;
 }
 
 export interface StudySetOut {

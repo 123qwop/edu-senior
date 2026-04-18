@@ -3,7 +3,6 @@ import {
   type Assignment,
   type ClassOut,
   createClass,
-  createStudySet,
   deleteClass,
   getClassAssignments,
   getClassStudents,
@@ -17,6 +16,7 @@ import {
   type StudySetOut,
 } from "@/api/studySetsApi";
 import AntDesign from "@expo/vector-icons/AntDesign";
+import CreateStudySetModal from "@/ui/CreateStudySetModal";
 import { Picker } from "@react-native-picker/picker";
 import { Stack } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -46,8 +46,6 @@ const SUBJECT_OPTIONS = [
 
 const GRADE_NONE = "none";
 
-const STUDY_SET_TYPES = ["Flashcards", "Quiz", "Problem set"] as const;
-
 const CLASS_TABS = [
   "Students",
   "Assignments",
@@ -75,12 +73,6 @@ export default function MyClassesPage() {
   const [newClassDescription, setNewClassDescription] = useState("");
   const [creating, setCreating] = useState(false);
   const [createSetOpen, setCreateSetOpen] = useState(false);
-  const [newSetTitle, setNewSetTitle] = useState("");
-  const [newSetSubject, setNewSetSubject] = useState("");
-  const [newSetType, setNewSetType] =
-    useState<(typeof STUDY_SET_TYPES)[number]>("Flashcards");
-  const [newSetDescription, setNewSetDescription] = useState("");
-  const [creatingSet, setCreatingSet] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [classDetailOpen, setClassDetailOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<ClassOut | null>(null);
@@ -230,45 +222,6 @@ export default function MyClassesPage() {
         },
       },
     ]);
-  };
-
-  const closeCreateSetModal = () => {
-    setCreateSetOpen(false);
-    setNewSetTitle("");
-    setNewSetSubject("");
-    setNewSetType("Flashcards");
-    setNewSetDescription("");
-  };
-
-  const submitCreateStudySet = async () => {
-    if (creatingSet) return;
-    const title = newSetTitle.trim();
-    if (!title) {
-      Alert.alert("Validation", "Title is required.");
-      return;
-    }
-    if (!newSetSubject) {
-      Alert.alert("Validation", "Subject is required.");
-      return;
-    }
-    try {
-      setCreatingSet(true);
-      await createStudySet({
-        title,
-        subject: newSetSubject,
-        type: newSetType,
-        description: newSetDescription.trim() || undefined,
-      });
-      closeCreateSetModal();
-      await loadPage();
-    } catch (err) {
-      Alert.alert(
-        "Error",
-        err instanceof Error ? err.message : "Failed to create study set",
-      );
-    } finally {
-      setCreatingSet(false);
-    }
   };
 
   const openClassDetail = (item: ClassOut) => {
@@ -760,92 +713,12 @@ export default function MyClassesPage() {
         </View>
       </Modal>
 
-      <Modal
+      <CreateStudySetModal
         visible={createSetOpen}
-        animationType="fade"
-        transparent
-        onRequestClose={closeCreateSetModal}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>New study set</Text>
-            <ScrollView
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-              style={styles.modalScroll}
-            >
-              <Text style={styles.fieldLabel}>
-                Title <Text style={styles.requiredMark}>*</Text>
-              </Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Title"
-                value={newSetTitle}
-                onChangeText={setNewSetTitle}
-                placeholderTextColor="#64748B"
-              />
-              <Text style={styles.fieldLabel}>
-                Subject <Text style={styles.requiredMark}>*</Text>
-              </Text>
-              <View style={styles.pickerWrap}>
-                <Picker
-                  selectedValue={newSetSubject}
-                  onValueChange={(v) => setNewSetSubject(String(v))}
-                  style={styles.picker}
-                >
-                  <Picker.Item label="Select subject" value="" />
-                  {SUBJECT_OPTIONS.map((sub) => (
-                    <Picker.Item key={sub} label={sub} value={sub} />
-                  ))}
-                </Picker>
-              </View>
-              <Text style={styles.fieldLabel}>Type</Text>
-              <View style={styles.pickerWrap}>
-                <Picker
-                  selectedValue={newSetType}
-                  onValueChange={(v) =>
-                    setNewSetType(v as (typeof STUDY_SET_TYPES)[number])
-                  }
-                  style={styles.picker}
-                >
-                  {STUDY_SET_TYPES.map((t) => (
-                    <Picker.Item key={t} label={t} value={t} />
-                  ))}
-                </Picker>
-              </View>
-              <Text style={styles.fieldLabel}>Description (optional)</Text>
-              <TextInput
-                style={[styles.input, styles.descriptionInput]}
-                placeholder="Description"
-                value={newSetDescription}
-                onChangeText={setNewSetDescription}
-                placeholderTextColor="#64748B"
-                multiline
-                textAlignVertical="top"
-              />
-            </ScrollView>
-            <View style={styles.modalActions}>
-              <Pressable
-                onPress={closeCreateSetModal}
-                style={styles.secondaryBtn}
-              >
-                <Text style={styles.secondaryBtnText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                onPress={submitCreateStudySet}
-                disabled={creatingSet}
-                style={[styles.primaryBtn, creatingSet && styles.disabled]}
-              >
-                {creatingSet ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.primaryBtnText}>Create</Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setCreateSetOpen(false)}
+        onSuccess={loadPage}
+        isTeacher={isTeacher}
+      />
     </>
   );
 }
