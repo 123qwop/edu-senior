@@ -1,9 +1,5 @@
-import { View, Text } from "react-native";
+import ProgressPage from "@/ui/ProgressPage";
 
 export default function Progress() {
-  return (
-    <View>
-      <Text>Progress</Text>
-    </View>
-  );
+  return <ProgressPage />;
 }
