@@ -15,6 +15,7 @@ import {
   LayoutAnimation,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -174,9 +175,11 @@ export default function ProgressPage() {
   const [studentProgress, setStudentProgress] =
     useState<ProgressResponse | null>(null);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [refreshing, setRefreshing] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { showInitialSpinner?: boolean }) => {
+    const showSpinner = opts?.showInitialSpinner !== false;
+    if (showSpinner) setLoading(true);
     setError(null);
     try {
       const r = (await getUserRole())?.toLowerCase().trim() ?? null;
@@ -198,12 +201,21 @@ export default function ProgressPage() {
       setTeacherAnalytics(null);
       setStudentProgress(null);
     } finally {
-      setLoading(false);
+      if (showSpinner) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    load();
+    load({ showInitialSpinner: true });
+  }, [load]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await load({ showInitialSpinner: false });
+    } finally {
+      setRefreshing(false);
+    }
   }, [load]);
 
   const toggleSet = (setId: number) => {
@@ -232,6 +244,14 @@ export default function ProgressPage() {
           { paddingBottom: 24 + insets.bottom },
         ]}
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#2593BE"
+            colors={["#2593BE"]}
+          />
+        }
       >
         {loading ? (
           <View style={styles.centered}>
@@ -241,7 +261,10 @@ export default function ProgressPage() {
         ) : error ? (
           <View style={styles.centered}>
             <Text style={styles.errorText}>{error}</Text>
-            <Pressable style={styles.retryBtn} onPress={load}>
+            <Pressable
+              style={styles.retryBtn}
+              onPress={() => load({ showInitialSpinner: true })}
+            >
               <Text style={styles.retryBtnText}>Retry</Text>
             </Pressable>
           </View>

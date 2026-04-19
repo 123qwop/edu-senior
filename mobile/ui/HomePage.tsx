@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,9 +20,11 @@ export default function HomePage() {
   const [firstName, setFirstName] = useState("there");
   const [role, setRole] = useState<string | null>(null);
   const [stats, setStats] = useState<DashboardStats>({});
+  const [refreshing, setRefreshing] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { showInitialSpinner?: boolean }) => {
+    const showSpinner = opts?.showInitialSpinner !== false;
+    if (showSpinner) setLoading(true);
     let resolvedRole: string | null = null;
     try {
       const user = await getMe();
@@ -48,12 +51,23 @@ export default function HomePage() {
       } catch {
         setStats({});
       }
+    } else {
+      setStats({});
     }
-    setLoading(false);
+    if (showSpinner) setLoading(false);
   }, []);
 
   useEffect(() => {
-    load();
+    load({ showInitialSpinner: true });
+  }, [load]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await load({ showInitialSpinner: false });
+    } finally {
+      setRefreshing(false);
+    }
   }, [load]);
 
   const classesActive = stats.classes_active ?? 0;
@@ -75,10 +89,24 @@ export default function HomePage() {
             headerStyle: { backgroundColor: "#2593BE" },
           }}
         />
-        <View style={[styles.centered, { paddingBottom: insets.bottom }]}>
+        <ScrollView
+          style={{ flex: 1, backgroundColor: "#F1F5F9" }}
+          contentContainerStyle={[
+            styles.centered,
+            { flexGrow: 1, paddingBottom: insets.bottom + 24 },
+          ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#2593BE"
+              colors={["#2593BE"]}
+            />
+          }
+        >
           <ActivityIndicator size="large" color="#2593BE" />
           <Text style={styles.muted}>Loading…</Text>
-        </View>
+        </ScrollView>
       </>
     );
   }
@@ -101,6 +129,14 @@ export default function HomePage() {
             { paddingBottom: 24 + insets.bottom },
           ]}
           keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#2593BE"
+              colors={["#2593BE"]}
+            />
+          }
         >
           <View style={styles.welcomeCard}>
             <Text style={styles.welcomeTitle}>
@@ -191,12 +227,26 @@ export default function HomePage() {
             headerStyle: { backgroundColor: "#2593BE" },
           }}
         />
-        <View style={[styles.adminWrap, { paddingBottom: insets.bottom }]}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.adminWrap,
+            { paddingBottom: 24 + insets.bottom, flexGrow: 1 },
+          ]}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#2593BE"
+              colors={["#2593BE"]}
+            />
+          }
+        >
           <Text style={styles.welcomeTitle}>Welcome, {firstName}</Text>
           <Text style={styles.welcomeSubtitle}>
             Use the web admin portal for administration.
           </Text>
-        </View>
+        </ScrollView>
       </>
     );
   }
@@ -223,6 +273,14 @@ export default function HomePage() {
           { paddingBottom: 24 + insets.bottom },
         ]}
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#2593BE"
+            colors={["#2593BE"]}
+          />
+        }
       >
         <View style={styles.welcomeCard}>
           <Text style={styles.welcomeTitle}>Welcome back, {firstName}!</Text>

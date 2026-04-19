@@ -9,8 +9,11 @@ import {
   getClassStudentsProgress,
   getClasses,
   getLeaderboard,
+  getStudySet,
+  getStudySetQuestions,
   getStudySets,
   type LeaderboardResponse,
+  type Question,
   type Student,
   type StudentProgressDetail,
   type StudySetOut,
@@ -25,6 +28,7 @@ import {
   Alert,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -91,10 +95,25 @@ export default function MyClassesPage() {
   const [tabLoading, setTabLoading] = useState(false);
   const [tabError, setTabError] = useState<string | null>(null);
 
+  const [studySetDetailOpen, setStudySetDetailOpen] = useState(false);
+  const [selectedStudySet, setSelectedStudySet] = useState<StudySetOut | null>(
+    null,
+  );
+  const [studySetDetail, setStudySetDetail] = useState<StudySetOut | null>(
+    null,
+  );
+  const [studySetQuestions, setStudySetQuestions] = useState<Question[]>([]);
+  const [studySetDetailLoading, setStudySetDetailLoading] = useState(false);
+  const [studySetDetailError, setStudySetDetailError] = useState<string | null>(
+    null,
+  );
+  const [refreshing, setRefreshing] = useState(false);
+
   const isTeacher = role === "teacher";
 
-  const loadPage = useCallback(async () => {
-    setLoading(true);
+  const loadPage = useCallback(async (opts?: { showInitialSpinner?: boolean }) => {
+    const showSpinner = opts?.showInitialSpinner !== false;
+    if (showSpinner) setLoading(true);
     setError(null);
     setStudySetsError(null);
     try {
@@ -131,11 +150,20 @@ export default function MyClassesPage() {
       setStudySets([]);
     }
 
-    setLoading(false);
+    if (showSpinner) setLoading(false);
   }, []);
 
   useEffect(() => {
-    loadPage();
+    loadPage({ showInitialSpinner: true });
+  }, [loadPage]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadPage({ showInitialSpinner: false });
+    } finally {
+      setRefreshing(false);
+    }
   }, [loadPage]);
 
   const filtered = useMemo(() => {
@@ -308,6 +336,64 @@ export default function MyClassesPage() {
     return d.toLocaleString();
   };
 
+  const openStudySetDetail = (item: StudySetOut) => {
+    setSelectedStudySet(item);
+    setStudySetDetail(null);
+    setStudySetQuestions([]);
+    setStudySetDetailError(null);
+    setStudySetDetailOpen(true);
+    setStudySetDetailLoading(true);
+    (async () => {
+      try {
+        const [detail, questions] = await Promise.all([
+          getStudySet(item.id),
+          getStudySetQuestions(item.id),
+        ]);
+        setStudySetDetail(detail);
+        setStudySetQuestions(questions);
+      } catch (e) {
+        setStudySetDetailError(
+          e instanceof Error ? e.message : "Failed to load study set",
+        );
+        setStudySetDetail(null);
+        setStudySetQuestions([]);
+      } finally {
+        setStudySetDetailLoading(false);
+      }
+    })();
+  };
+
+  const closeStudySetDetail = () => {
+    setStudySetDetailOpen(false);
+    setSelectedStudySet(null);
+    setStudySetDetail(null);
+    setStudySetQuestions([]);
+    setStudySetDetailError(null);
+  };
+
+  const displayStudySet = studySetDetail ?? selectedStudySet;
+
+  const formatQuestionType = (t: string) =>
+    t.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+  const questionPreview = (q: Question) => {
+    if (q.term != null || q.definition != null) {
+      const parts = [
+        q.term ? `Term: ${q.term}` : null,
+        q.definition ? `Definition: ${q.definition}` : null,
+      ].filter(Boolean);
+      if (parts.length) return parts.join("\n");
+    }
+    const lines = [q.content?.trim() || ""];
+    if (q.options && q.options.length > 0) {
+      lines.push(
+        q.options.map((o, i) => `${i + 1}. ${o}`).join("\n"),
+      );
+    }
+    const text = lines.filter(Boolean).join("\n\n");
+    return text || "—";
+  };
+
   return (
     <>
       <Stack.Screen
@@ -323,6 +409,14 @@ export default function MyClassesPage() {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#2593BE"
+              colors={["#2593BE"]}
+            />
+          }
         >
           <View style={styles.titleRow}>
             <Text style={styles.titleText}>My classes</Text>
@@ -368,7 +462,7 @@ export default function MyClassesPage() {
               {error ? (
                 <View style={styles.centered}>
                   <Text style={styles.error}>{error}</Text>
-                  <Pressable style={styles.primaryBtn} onPress={loadPage}>
+                  <Pressable style={styles.primaryBtn} onPress={() => loadPage({ showInitialSpinner: true })}>
                     <Text style={styles.primaryBtnText}>Retry</Text>
                   </Pressable>
                 </View>
@@ -456,7 +550,7 @@ export default function MyClassesPage() {
               {studySetsError ? (
                 <View style={styles.centered}>
                   <Text style={styles.error}>{studySetsError}</Text>
-                  <Pressable style={styles.primaryBtn} onPress={loadPage}>
+                  <Pressable style={styles.primaryBtn} onPress={() => loadPage({ showInitialSpinner: true })}>
                     <Text style={styles.primaryBtnText}>Retry</Text>
                   </Pressable>
                 </View>
@@ -468,7 +562,16 @@ export default function MyClassesPage() {
                 </Text>
               ) : (
                 filteredStudySets.map((s) => (
-                  <View key={s.id} style={styles.card}>
+                  <Pressable
+                    key={s.id}
+                    style={({ pressed }) => [
+                      styles.card,
+                      pressed && styles.cardTouchablePressed,
+                    ]}
+                    onPress={() => openStudySetDetail(s)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open study set ${s.title}`}
+                  >
                     <Text style={styles.cardTitle}>{s.title}</Text>
                     <Text style={styles.cardMeta}>
                       Subject: {s.subject ?? "—"}
@@ -480,7 +583,7 @@ export default function MyClassesPage() {
                         ? ` · Mastery: ${Math.round(s.mastery)}%`
                         : ""}
                     </Text>
-                  </View>
+                  </Pressable>
                 ))
               )}
             </>
@@ -621,6 +724,75 @@ export default function MyClassesPage() {
               </>
             ) : (
               <Text style={styles.muted}>No analytics data yet.</Text>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={studySetDetailOpen}
+        animationType="slide"
+        onRequestClose={closeStudySetDetail}
+      >
+        <View style={styles.classModalScreen}>
+          <View
+            style={[styles.classModalHeader, { paddingTop: insets.top + 8 }]}
+          >
+            <Pressable onPress={closeStudySetDetail} style={styles.backBtn}>
+              <AntDesign name="arrow-left" size={18} color="#0F172A" />
+              <Text style={styles.backBtnText}>Back</Text>
+            </Pressable>
+            <Text style={styles.classModalTitle}>
+              {displayStudySet?.title ?? "Study set"}
+            </Text>
+            <Text style={styles.classModalSubtitle}>
+              {(displayStudySet?.subject ?? "—") +
+                (displayStudySet?.type
+                  ? ` · ${displayStudySet.type}`
+                  : "") +
+                (displayStudySet?.level
+                  ? ` · ${displayStudySet.level}`
+                  : "")}
+            </Text>
+          </View>
+
+          <ScrollView
+            style={styles.classTabScroll}
+            contentContainerStyle={styles.classTabBody}
+          >
+            {studySetDetailLoading ? (
+              <View style={styles.centered}>
+                <ActivityIndicator size="small" color="#2593BE" />
+                <Text style={styles.muted}>Loading study set…</Text>
+              </View>
+            ) : studySetDetailError ? (
+              <Text style={styles.error}>{studySetDetailError}</Text>
+            ) : (
+              <>
+                {displayStudySet?.description ? (
+                  <Text style={styles.setDetailDescription}>
+                    {displayStudySet.description}
+                  </Text>
+                ) : null}
+                {displayStudySet?.tags && displayStudySet.tags.length > 0 ? (
+                  <Text style={styles.setDetailTags}>
+                    Tags: {displayStudySet.tags.join(", ")}
+                  </Text>
+                ) : null}
+                <Text style={styles.setDetailSectionTitle}>Items</Text>
+                {studySetQuestions.length === 0 ? (
+                  <Text style={styles.muted}>No items in this set yet.</Text>
+                ) : (
+                  studySetQuestions.map((q) => (
+                    <View key={q.id} style={styles.rowCard}>
+                      <Text style={styles.rowTitle}>
+                        {formatQuestionType(q.type)}
+                      </Text>
+                      <Text style={styles.rowMeta}>{questionPreview(q)}</Text>
+                    </View>
+                  ))
+                )}
+              </>
             )}
           </ScrollView>
         </View>
@@ -1014,5 +1186,22 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 10,
     gap: 4,
+  },
+  setDetailDescription: {
+    fontSize: 15,
+    color: "#475569",
+    lineHeight: 22,
+    marginBottom: 12,
+  },
+  setDetailTags: {
+    fontSize: 13,
+    color: "#64748B",
+    marginBottom: 16,
+  },
+  setDetailSectionTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginBottom: 10,
   },
 });
