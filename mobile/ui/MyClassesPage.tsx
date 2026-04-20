@@ -116,53 +116,53 @@ export default function MyClassesPage() {
   const isTeacher = role === "teacher";
   const isStudent = role?.toLowerCase().trim() === "student";
 
-  const loadPage = useCallback(async (opts?: { showInitialSpinner?: boolean }) => {
-    const showSpinner = opts?.showInitialSpinner !== false;
-    if (showSpinner) setLoading(true);
-    setError(null);
-    setStudySetsError(null);
-    let resolvedRole: string | null = null;
-    try {
-      resolvedRole = await getUserRole();
-      setRole(resolvedRole);
-    } catch {
-      setRole(null);
-    }
+  const loadPage = useCallback(
+    async (opts?: { showInitialSpinner?: boolean }) => {
+      const showSpinner = opts?.showInitialSpinner !== false;
+      if (showSpinner) setLoading(true);
+      setError(null);
+      setStudySetsError(null);
+      let resolvedRole: string | null = null;
+      try {
+        resolvedRole = await getUserRole();
+        setRole(resolvedRole);
+      } catch {
+        setRole(null);
+      }
 
-    const teacherRole =
-      resolvedRole?.toLowerCase().trim() === "teacher";
+      const teacherRole = resolvedRole?.toLowerCase().trim() === "teacher";
 
-    const [classesRes, setsRes] = await Promise.allSettled([
-      getClasses(),
-      teacherRole
-        ? getStudySets({ ownership: "Mine" })
-        : getStudySets(),
-    ]);
+      const [classesRes, setsRes] = await Promise.allSettled([
+        getClasses(),
+        teacherRole ? getStudySets({ ownership: "Mine" }) : getStudySets(),
+      ]);
 
-    if (classesRes.status === "fulfilled") {
-      setClasses(classesRes.value);
-    } else {
-      const msg =
-        classesRes.reason instanceof Error
-          ? classesRes.reason.message
-          : "Failed to load classes";
-      setError(msg);
-      setClasses([]);
-    }
+      if (classesRes.status === "fulfilled") {
+        setClasses(classesRes.value);
+      } else {
+        const msg =
+          classesRes.reason instanceof Error
+            ? classesRes.reason.message
+            : "Failed to load classes";
+        setError(msg);
+        setClasses([]);
+      }
 
-    if (setsRes.status === "fulfilled") {
-      setStudySets(setsRes.value);
-    } else {
-      const msg =
-        setsRes.reason instanceof Error
-          ? setsRes.reason.message
-          : "Failed to load study sets";
-      setStudySetsError(msg);
-      setStudySets([]);
-    }
+      if (setsRes.status === "fulfilled") {
+        setStudySets(setsRes.value);
+      } else {
+        const msg =
+          setsRes.reason instanceof Error
+            ? setsRes.reason.message
+            : "Failed to load study sets";
+        setStudySetsError(msg);
+        setStudySets([]);
+      }
 
-    if (showSpinner) setLoading(false);
-  }, []);
+      if (showSpinner) setLoading(false);
+    },
+    [],
+  );
 
   useEffect(() => {
     loadPage({ showInitialSpinner: true });
@@ -412,9 +412,7 @@ export default function MyClassesPage() {
     }
     const lines = [q.content?.trim() || ""];
     if (q.options && q.options.length > 0) {
-      lines.push(
-        q.options.map((o, i) => `${i + 1}. ${o}`).join("\n"),
-      );
+      lines.push(q.options.map((o, i) => `${i + 1}. ${o}`).join("\n"));
     }
     const text = lines.filter(Boolean).join("\n\n");
     return text || "—";
@@ -488,7 +486,10 @@ export default function MyClassesPage() {
               {error ? (
                 <View style={styles.centered}>
                   <Text style={styles.error}>{error}</Text>
-                  <Pressable style={styles.primaryBtn} onPress={() => loadPage({ showInitialSpinner: true })}>
+                  <Pressable
+                    style={styles.primaryBtn}
+                    onPress={() => loadPage({ showInitialSpinner: true })}
+                  >
                     <Text style={styles.primaryBtnText}>Retry</Text>
                   </Pressable>
                 </View>
@@ -580,7 +581,10 @@ export default function MyClassesPage() {
               {studySetsError ? (
                 <View style={styles.centered}>
                   <Text style={styles.error}>{studySetsError}</Text>
-                  <Pressable style={styles.primaryBtn} onPress={() => loadPage({ showInitialSpinner: true })}>
+                  <Pressable
+                    style={styles.primaryBtn}
+                    onPress={() => loadPage({ showInitialSpinner: true })}
+                  >
                     <Text style={styles.primaryBtnText}>Retry</Text>
                   </Pressable>
                 </View>
@@ -777,12 +781,8 @@ export default function MyClassesPage() {
             </Text>
             <Text style={styles.classModalSubtitle}>
               {(displayStudySet?.subject ?? "—") +
-                (displayStudySet?.type
-                  ? ` · ${displayStudySet.type}`
-                  : "") +
-                (displayStudySet?.level
-                  ? ` · ${displayStudySet.level}`
-                  : "")}
+                (displayStudySet?.type ? ` · ${displayStudySet.type}` : "") +
+                (displayStudySet?.level ? ` · ${displayStudySet.level}` : "")}
             </Text>
           </View>
 
