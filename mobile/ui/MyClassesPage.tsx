@@ -130,11 +130,13 @@ export default function MyClassesPage() {
         setRole(null);
       }
 
-      const teacherRole = resolvedRole?.toLowerCase().trim() === "teacher";
+      const normalizedRole = resolvedRole?.toLowerCase().trim() ?? "";
+      const ownSetsRole =
+        normalizedRole === "teacher" || normalizedRole === "student";
 
       const [classesRes, setsRes] = await Promise.allSettled([
         getClasses(),
-        teacherRole ? getStudySets({ ownership: "Mine" }) : getStudySets(),
+        ownSetsRole ? getStudySets({ ownership: "Mine" }) : getStudySets(),
       ]);
 
       if (classesRes.status === "fulfilled") {
@@ -552,22 +554,18 @@ export default function MyClassesPage() {
               <View style={styles.sectionDivider} />
 
               <View style={styles.titleRow}>
-                <Text style={styles.titleText}>
-                  {isTeacher ? "My study sets" : "Study sets"}
-                </Text>
-                {isTeacher ? (
-                  <Pressable
-                    accessibilityLabel="Create study set"
-                    onPress={() => setCreateSetOpen(true)}
-                    style={({ pressed }) => [
-                      styles.plusButton,
-                      pressed && styles.plusPressed,
-                    ]}
-                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                  >
-                    <AntDesign name="plus" size={26} color="#2593BE" />
-                  </Pressable>
-                ) : null}
+                <Text style={styles.titleText}>My study sets</Text>
+                <Pressable
+                  accessibilityLabel="Create study set"
+                  onPress={() => setCreateSetOpen(true)}
+                  style={({ pressed }) => [
+                    styles.plusButton,
+                    pressed && styles.plusPressed,
+                  ]}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                >
+                  <AntDesign name="plus" size={26} color="#2593BE" />
+                </Pressable>
               </View>
 
               <TextInput
