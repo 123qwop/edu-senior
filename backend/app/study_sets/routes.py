@@ -2170,9 +2170,23 @@ def record_progress(
                         models.QuestionOption.question_id == question.question_id
                     ).order_by(models.QuestionOption.option_order).all()
                     if user_answer_idx >= 0 and user_answer_idx < len(options):
-                        correct_option_text = question.correct_answer.strip()
+                        correct_answer_raw = str(question.correct_answer).strip()
                         selected_option_text = options[user_answer_idx].option_text.strip()
-                        is_correct = selected_option_text.lower() == correct_option_text.lower()
+                        # Backward-compatibility:
+                        # `correct_answer` may be stored as option text, 0-based index, or 1-based index.
+                        is_correct = selected_option_text.lower() == correct_answer_raw.lower()
+                        if not is_correct:
+                            try:
+                                correct_answer_idx = int(correct_answer_raw)
+                                if user_answer_idx == correct_answer_idx:
+                                    is_correct = True
+                                elif (
+                                    1 <= correct_answer_idx <= len(options)
+                                    and user_answer_idx == correct_answer_idx - 1
+                                ):
+                                    is_correct = True
+                            except (TypeError, ValueError):
+                                pass
                 except (ValueError, IndexError):
                     is_correct = False
             elif question.type == "true_false":

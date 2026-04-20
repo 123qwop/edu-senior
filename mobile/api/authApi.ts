@@ -39,6 +39,72 @@ function isNetworkError(err: unknown): boolean {
   );
 }
 
+async function getStoredTokenPair(): Promise<{
+  token: string | null;
+  refreshToken: string | null;
+}> {
+  const [token, refreshToken] = await AsyncStorage.multiGet([
+    "token",
+    "refresh_token",
+  ]).then((entries) => [entries[0]?.[1] ?? null, entries[1]?.[1] ?? null]);
+  return { token, refreshToken };
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = await AsyncStorage.getItem("refresh_token");
+  if (!refreshToken) return null;
+
+  const res = await fetch(`${API_URL}/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+
+  if (!res.ok) return null;
+
+  const data = await res.json();
+  if (!data?.access_token) return null;
+
+  await AsyncStorage.setItem("token", data.access_token);
+  if (data.refresh_token) {
+    await AsyncStorage.setItem("refresh_token", data.refresh_token);
+  }
+  return data.access_token;
+}
+
+async function fetchWithAuthRetry(
+  path: string,
+  init?: RequestInit,
+): Promise<Response> {
+  const { token } = await getStoredTokenPair();
+  const firstHeaders: Record<string, string> = {
+    ...(init?.headers ? (init.headers as Record<string, string>) : {}),
+  };
+  if (token) {
+    firstHeaders.Authorization = `Bearer ${token}`;
+  }
+
+  let res = await fetch(`${API_URL}${path}`, {
+    ...init,
+    headers: firstHeaders,
+  });
+  if (res.status !== 401) return res;
+
+  const newToken = await refreshAccessToken();
+  if (!newToken) return res;
+
+  const retryHeaders: Record<string, string> = {
+    ...(init?.headers ? (init.headers as Record<string, string>) : {}),
+    Authorization: `Bearer ${newToken}`,
+  };
+
+  res = await fetch(`${API_URL}${path}`, {
+    ...init,
+    headers: retryHeaders,
+  });
+  return res;
+}
+
 export async function register(data: {
   email: string;
   password: string;
@@ -125,16 +191,14 @@ export async function login(email: string, password: string) {
 }
 
 export async function getMe() {
-  const token = await AsyncStorage.getItem("token");
+  const { token, refreshToken } = await getStoredTokenPair();
   if (!token) {
-    throw new Error("No token found");
+    if (!refreshToken) {
+      throw new Error("No token found");
+    }
   }
 
-  const res = await fetch(`${API_URL}/auth/me`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  const res = await fetchWithAuthRetry("/auth/me");
 
   if (!res.ok) {
     throw new Error("Failed to fetch user data");
@@ -170,16 +234,17 @@ export interface UserUpdate {
 }
 
 export async function updateProfile(data: UserUpdate) {
-  const token = await AsyncStorage.getItem("token");
+  const { token, refreshToken } = await getStoredTokenPair();
   if (!token) {
-    throw new Error("No token found");
+    if (!refreshToken) {
+      throw new Error("No token found");
+    }
   }
 
-  const res = await fetch(`${API_URL}/auth/me`, {
+  const res = await fetchWithAuthRetry("/auth/me", {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(data),
   });

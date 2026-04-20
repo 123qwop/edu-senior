@@ -20,6 +20,7 @@ import {
 } from "@/api/studySetsApi";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import CreateStudySetModal from "@/ui/CreateStudySetModal";
+import StudySetPracticeModal from "@/ui/StudySetPracticeModal";
 import { Picker } from "@react-native-picker/picker";
 import { Stack } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -108,24 +109,34 @@ export default function MyClassesPage() {
     null,
   );
   const [refreshing, setRefreshing] = useState(false);
+  const [practiceOpen, setPracticeOpen] = useState(false);
+  const [practiceSetId, setPracticeSetId] = useState<number | null>(null);
+  const [practiceTitle, setPracticeTitle] = useState("");
 
   const isTeacher = role === "teacher";
+  const isStudent = role?.toLowerCase().trim() === "student";
 
   const loadPage = useCallback(async (opts?: { showInitialSpinner?: boolean }) => {
     const showSpinner = opts?.showInitialSpinner !== false;
     if (showSpinner) setLoading(true);
     setError(null);
     setStudySetsError(null);
+    let resolvedRole: string | null = null;
     try {
-      const userRole = await getUserRole();
-      setRole(userRole);
+      resolvedRole = await getUserRole();
+      setRole(resolvedRole);
     } catch {
       setRole(null);
     }
 
+    const teacherRole =
+      resolvedRole?.toLowerCase().trim() === "teacher";
+
     const [classesRes, setsRes] = await Promise.allSettled([
       getClasses(),
-      getStudySets({ ownership: "Mine" }),
+      teacherRole
+        ? getStudySets({ ownership: "Mine" })
+        : getStudySets(),
     ]);
 
     if (classesRes.status === "fulfilled") {
@@ -371,6 +382,21 @@ export default function MyClassesPage() {
     setStudySetDetailError(null);
   };
 
+  const openPracticeFromDetail = () => {
+    if (!selectedStudySet) return;
+    const s = selectedStudySet;
+    setPracticeSetId(s.id);
+    setPracticeTitle(s.title);
+    setPracticeOpen(true);
+    closeStudySetDetail();
+  };
+
+  const closePractice = () => {
+    setPracticeOpen(false);
+    setPracticeSetId(null);
+    setPracticeTitle("");
+  };
+
   const displayStudySet = studySetDetail ?? selectedStudySet;
 
   const formatQuestionType = (t: string) =>
@@ -525,18 +551,22 @@ export default function MyClassesPage() {
               <View style={styles.sectionDivider} />
 
               <View style={styles.titleRow}>
-                <Text style={styles.titleText}>My study sets</Text>
-                <Pressable
-                  accessibilityLabel="Create study set"
-                  onPress={() => setCreateSetOpen(true)}
-                  style={({ pressed }) => [
-                    styles.plusButton,
-                    pressed && styles.plusPressed,
-                  ]}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                >
-                  <AntDesign name="plus" size={26} color="#2593BE" />
-                </Pressable>
+                <Text style={styles.titleText}>
+                  {isTeacher ? "My study sets" : "Study sets"}
+                </Text>
+                {isTeacher ? (
+                  <Pressable
+                    accessibilityLabel="Create study set"
+                    onPress={() => setCreateSetOpen(true)}
+                    style={({ pressed }) => [
+                      styles.plusButton,
+                      pressed && styles.plusPressed,
+                    ]}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
+                    <AntDesign name="plus" size={26} color="#2593BE" />
+                  </Pressable>
+                ) : null}
               </View>
 
               <TextInput
@@ -792,11 +822,28 @@ export default function MyClassesPage() {
                     </View>
                   ))
                 )}
+                {isStudent && studySetQuestions.length > 0 ? (
+                  <Pressable
+                    style={styles.practiceBtn}
+                    onPress={openPracticeFromDetail}
+                  >
+                    <AntDesign name="play-circle" size={20} color="#fff" />
+                    <Text style={styles.practiceBtnText}>Start practice</Text>
+                  </Pressable>
+                ) : null}
               </>
             )}
           </ScrollView>
         </View>
       </Modal>
+
+      <StudySetPracticeModal
+        visible={practiceOpen}
+        setId={practiceSetId}
+        title={practiceTitle}
+        onClose={closePractice}
+        onSubmitted={() => loadPage({ showInitialSpinner: false })}
+      />
 
       <Modal
         visible={createOpen}
@@ -1203,5 +1250,21 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#0F172A",
     marginBottom: 10,
+  },
+  practiceBtn: {
+    marginTop: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#2593BE",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+  },
+  practiceBtnText: {
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "700",
   },
 });
