@@ -30,7 +30,7 @@ type Props = {
 
 function normQuestionType(type: string | undefined): string {
   if (!type) return "";
-  return String(type).trim().toLowerCase().replace(/\s+/g, "_");
+  return String(type).trim().toLowerCase().replace(/[\/\s]+/g, "_");
 }
 
 function buildProgressPayload(

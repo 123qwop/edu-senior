@@ -19,6 +19,12 @@ router = APIRouter()
 _logger = logging.getLogger(__name__)
 
 
+def _normalize_question_type(value: Optional[str]) -> str:
+    if not value:
+        return ""
+    return value.strip().lower().replace(" ", "_").replace("/", "_")
+
+
 def _user_may_view_assignment_context(
     db: Session,
     user: User,
@@ -344,7 +350,7 @@ def create_study_set(
             question_type = payload.initialItem.get("questionType", "multiple_choice")
             question = models.Question(
                 set_id=study_set.set_id,
-                type=question_type.lower().replace(" ", "_"),
+                type=_normalize_question_type(question_type),
                 content=payload.initialItem.get("question", ""),
                 correct_answer=str(payload.initialItem.get("correctAnswer", "")),
             )
@@ -2111,22 +2117,23 @@ def get_study_set_questions(
     
     result = []
     for question in questions:
+        normalized_type = _normalize_question_type(question.type)
         question_data = {
             "id": question.question_id,
             "set_id": question.set_id,
-            "type": question.type,
+            "type": normalized_type,
             "content": question.content,
             "correct_answer": question.correct_answer,
             "explanation": question.explanation,
         }
         
-        if question.type == "flashcard":
+        if normalized_type == "flashcard":
             flashcard = db.query(models.Flashcard).filter(models.Flashcard.question_id == question.question_id).first()
             if flashcard:
                 question_data["term"] = flashcard.term
                 question_data["definition"] = flashcard.definition
         
-        if question.type in ["multiple_choice", "true_false"]:
+        if normalized_type in ["multiple_choice", "true_false"]:
             options = db.query(models.QuestionOption).filter(
                 models.QuestionOption.question_id == question.question_id
             ).order_by(models.QuestionOption.option_order).all()
@@ -2163,7 +2170,8 @@ def record_progress(
         user_answer = payload.answers.get(str(question.question_id))
         if user_answer is not None:
             is_correct = False
-            if question.type == "multiple_choice":
+            normalized_type = _normalize_question_type(question.type)
+            if normalized_type == "multiple_choice":
                 try:
                     user_answer_idx = int(user_answer)
                     options = db.query(models.QuestionOption).filter(
@@ -2189,7 +2197,7 @@ def record_progress(
                                 pass
                 except (ValueError, IndexError):
                     is_correct = False
-            elif question.type == "true_false":
+            elif normalized_type == "true_false":
                 user_answer_bool = str(user_answer).lower() == "true"
                 correct_answer_bool = str(question.correct_answer).strip().lower() == "true"
                 is_correct = user_answer_bool == correct_answer_bool
@@ -2270,7 +2278,7 @@ def add_question(
     if study_set.creator_id != current_user.user_id:
         raise HTTPException(status_code=403, detail="You can only add questions to your own study sets")
     
-    question_type = payload.type
+    question_type = _normalize_question_type(payload.type)
     if study_set.type == "Flashcards" and question_type != "flashcard":
         raise HTTPException(status_code=400, detail="Flashcard study sets can only contain flashcard questions")
     if study_set.type == "Quiz" and question_type not in [
@@ -2347,7 +2355,7 @@ def update_question(
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
     
-    question.type = payload.type
+    question.type = _normalize_question_type(payload.type)
     question.content = payload.content
     question.correct_answer = payload.correct_answer
     question.explanation = payload.explanation.strip() if payload.explanation else None
