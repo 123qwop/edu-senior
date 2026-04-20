@@ -85,9 +85,7 @@ export default function HomePage() {
             getLeaderboard(),
             getStreaks(),
           ]);
-          setStats(
-            settled[0].status === "fulfilled" ? settled[0].value : {},
-          );
+          setStats(settled[0].status === "fulfilled" ? settled[0].value : {});
           setAssignments(
             settled[1].status === "fulfilled" ? settled[1].value : [],
           );
@@ -401,8 +399,8 @@ export default function HomePage() {
         <View style={styles.welcomeCard}>
           <Text style={styles.welcomeTitle}>Welcome back, {firstName}!</Text>
           <Text style={styles.welcomeSubtitle}>
-            Personalized AI-powered study to help you master topics and stay
-            motivated.
+            Personalized AI-powered study tool to help you master topics and
+            stay motivated.
           </Text>
           <Pressable
             style={({ pressed }) => [
@@ -412,11 +410,14 @@ export default function HomePage() {
             onPress={handleContinue}
           >
             <AntDesign name="play-circle" size={20} color="#fff" />
-            <Text style={styles.primaryBtnText}>Continue where you left off</Text>
+            <Text style={styles.primaryBtnText}>
+              Continue where you left off
+            </Text>
           </Pressable>
           {recommendations.length > 0 ? (
             <Text style={styles.welcomeMeta}>
-              Next up: {recommendations[0].topic} ({recommendations[0].difficulty})
+              Next up: {recommendations[0].topic} (
+              {recommendations[0].difficulty})
             </Text>
           ) : null}
         </View>
@@ -425,7 +426,9 @@ export default function HomePage() {
           <>
             <View style={styles.card}>
               <Text style={styles.cardTitle}>Streaks and badges</Text>
-              <Text style={styles.streakValue}>{streaksData.streak} day streak</Text>
+              <Text style={styles.streakValue}>
+                {streaksData.streak} day streak
+              </Text>
               {streaksData.badges.length > 0 ? (
                 <Text style={styles.cardMetaText}>
                   Recent badges:{" "}
@@ -440,7 +443,8 @@ export default function HomePage() {
               {streaksData.next_badge ? (
                 <Text style={styles.cardMetaText}>
                   Next: {streaksData.next_badge.name} (
-                  {streaksData.next_badge.progress}/{streaksData.next_badge.target})
+                  {streaksData.next_badge.progress}/
+                  {streaksData.next_badge.target})
                 </Text>
               ) : null}
             </View>
@@ -453,7 +457,9 @@ export default function HomePage() {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.rowMainText}>{a.title}</Text>
                       {formatDue(a.due) ? (
-                        <Text style={styles.rowSubText}>Due {formatDue(a.due)}</Text>
+                        <Text style={styles.rowSubText}>
+                          Due {formatDue(a.due)}
+                        </Text>
                       ) : null}
                       <Text style={styles.rowSubText}>Status: {a.status}</Text>
                     </View>
@@ -475,7 +481,9 @@ export default function HomePage() {
                   </View>
                 ))
               ) : (
-                <Text style={styles.mutedCenter}>No assignments right now.</Text>
+                <Text style={styles.mutedCenter}>
+                  No assignments right now.
+                </Text>
               )}
             </View>
 
@@ -503,7 +511,9 @@ export default function HomePage() {
                       )
                     }
                   >
-                    <Text style={styles.recommendationBtnText}>Start studying</Text>
+                    <Text style={styles.recommendationBtnText}>
+                      Start studying
+                    </Text>
                   </Pressable>
                 </>
               ) : (
@@ -538,7 +548,10 @@ export default function HomePage() {
               <Text style={styles.cardTitle}>Class leaderboard</Text>
               {leaderboardData.leaderboard.length > 0 ? (
                 leaderboardData.leaderboard.slice(0, 3).map((entry) => (
-                  <Text key={`${entry.rank}-${entry.name}`} style={styles.rowSubText}>
+                  <Text
+                    key={`${entry.rank}-${entry.name}`}
+                    style={styles.rowSubText}
+                  >
                     #{entry.rank} {entry.name} - {entry.points} pts
                   </Text>
                 ))
